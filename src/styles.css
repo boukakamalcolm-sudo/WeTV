@@ -1,0 +1,182 @@
+/* Le châssis est neutre et sombre, les affiches apportent la couleur.
+   C'est le seul parti pris visuel du projet, tenu partout. */
+
+:root {
+  --fond: #101215;
+  --surface: #191c21;
+  --trait: #262a30;
+  --texte: #ecebe8;
+  --secondaire: #9aa0a8;   /* 5.1:1 sur le fond, au-dessus du seuil de 4,5:1 */
+  --vu: #5c9d7a;
+
+  --tactile: 44px;         /* 9 mm sur iOS, critère 14.1 */
+  --rayon: 10px;
+  --pas: 8px;
+
+  /* Une seule famille, native, pour ne rien charger au démarrage. */
+  --ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1 { font-size: 1.5rem; font-weight: 620; margin: 0 0 calc(var(--pas) * 2); }
+h2 { font-size: 1rem; font-weight: 560; margin: 0; }
+
+.pile { padding: calc(var(--pas) * 2); display: grid; gap: var(--pas); }
+
+.carte {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: calc(var(--pas) * 1.5);
+  align-items: center;
+  padding: var(--pas);
+  background: var(--surface);
+  border-radius: var(--rayon);
+  touch-action: pan-y;
+}
+
+.carte img { border-radius: 6px; display: block; object-fit: cover; }
+.carte .texte p { margin: 2px 0 0; color: var(--secondaire); font-size: 0.875rem; }
+
+.valider {
+  min-width: var(--tactile);
+  min-height: var(--tactile);
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  background: transparent;
+  color: var(--texte);
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* L'état vu ne passe jamais par la seule couleur : coche et libellé l'accompagnent. */
+.valider[aria-pressed='true'] { border-color: var(--vu); color: var(--vu); }
+.valider .libelle { font-size: 0.6875rem; color: var(--secondaire); }
+.valider:focus-visible { outline: 2px solid var(--texte); outline-offset: 2px; }
+
+.fantome { height: 112px; background: var(--surface); opacity: 0.5; }
+
+.vide { padding: calc(var(--pas) * 4) calc(var(--pas) * 2); display: grid; gap: var(--pas); justify-items: start; }
+.vide p { color: var(--secondaire); margin: 0; max-width: 40ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* --- Coquille et navigation --- */
+
+.app { min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+.ecran { padding: calc(var(--pas) * 2); display: grid; gap: calc(var(--pas) * 1.5); align-content: start; }
+
+.barre {
+  position: fixed; inset: auto 0 0 0;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--fond) 88%, transparent);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--trait);
+}
+
+.onglet {
+  min-height: var(--tactile);
+  display: grid; place-items: center; gap: 2px;
+  padding: var(--pas) 0;
+  color: var(--secondaire); text-decoration: none; font-size: 1.125rem;
+}
+.onglet .libelle { font-size: 0.6875rem; }
+.onglet[aria-current='page'] { color: var(--texte); }
+
+/* --- Actions --- */
+
+.action {
+  min-width: var(--tactile); min-height: var(--tactile);
+  display: inline-grid; place-items: center; gap: 2px;
+  padding: 0 calc(var(--pas) * 1.5);
+  border: 1px solid var(--trait); border-radius: var(--rayon);
+  background: transparent; color: var(--texte);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+.action.primaire { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+.action.discret { border-color: transparent; color: var(--secondaire); }
+.action[aria-pressed='true'] { border-color: var(--vu); color: var(--vu); }
+.action:disabled { opacity: 0.4; }
+.action:focus-visible { outline: 2px solid var(--texte); outline-offset: 2px; }
+.action .libelle { font-size: 0.6875rem; color: var(--secondaire); }
+
+/* --- Champs --- */
+
+.champ { font-size: 0.8125rem; color: var(--secondaire); }  /* l'étiquette reste visible */
+input[type='search'], textarea, select {
+  min-height: var(--tactile);
+  padding: 0 var(--pas);
+  background: var(--surface); color: var(--texte);
+  border: 1px solid var(--trait); border-radius: var(--rayon);
+  font: inherit; font-size: 1rem;                            /* 16px : évite le zoom iOS */
+  width: 100%;
+}
+textarea { padding: var(--pas); min-height: 96px; }
+
+/* --- Listes et fiche --- */
+
+.resultats, .episodes, .grille { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pas); }
+
+.ligne, .episode {
+  display: grid; grid-template-columns: auto 1fr auto; gap: var(--pas);
+  align-items: center; padding: var(--pas);
+  background: var(--surface); border-radius: var(--rayon);
+}
+.episode { grid-template-columns: var(--tactile) 1fr auto; }
+.episode.vu .texte h2 { color: var(--secondaire); }
+.secondaire { color: var(--secondaire); font-size: 0.875rem; margin: 0; }
+
+.entete { display: grid; grid-template-columns: 112px 1fr; gap: calc(var(--pas) * 2); align-items: end; }
+.entete img { border-radius: var(--rayon); }
+.fiche { background: linear-gradient(var(--voile, transparent), transparent 320px); }
+
+.barre-saison { display: grid; grid-template-columns: auto 1fr auto; gap: var(--pas); align-items: center; }
+
+.progression { display: grid; gap: 6px; font-size: 0.875rem; color: var(--secondaire); margin: 0; }
+.jauge { height: 3px; background: var(--trait); border-radius: 2px; }
+.jauge::before { content: ''; display: block; height: 100%; width: var(--part); background: var(--accent, var(--vu)); border-radius: 2px; }
+
+/* --- Découverte --- */
+
+.grille { grid-template-columns: repeat(3, 1fr); }
+.vignette { padding: 0; border: 2px solid transparent; border-radius: var(--rayon); background: none; position: relative; cursor: pointer; }
+.vignette img { width: 100%; display: block; border-radius: calc(var(--rayon) - 2px); }
+.vignette.choisie { border-color: var(--texte); }
+.marque { position: absolute; right: 6px; bottom: 6px; background: var(--texte); color: var(--fond); border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; font-size: 0.75rem; }
+
+.carte-tri { background: var(--surface); border-radius: var(--rayon); overflow: hidden; touch-action: pan-y; }
+.carte-tri img { width: 100%; display: block; }
+.carte-tri .legende { padding: calc(var(--pas) * 1.5); }
+.compte { text-align: center; }
+
+/* --- Feuille modale --- */
+
+.feuille {
+  position: fixed; inset: auto 0 0 0; z-index: 10;
+  display: grid; gap: var(--pas);
+  padding: calc(var(--pas) * 2) calc(var(--pas) * 2) calc(var(--pas) * 2 + env(safe-area-inset-bottom));
+  background: var(--surface); border-radius: 16px 16px 0 0; border-top: 1px solid var(--trait);
+}
+.notes { display: flex; gap: var(--pas); border: 0; padding: 0; margin: 0; }
+.notes legend { font-size: 0.8125rem; color: var(--secondaire); padding: 0 0 var(--pas); }
+.pied { display: flex; gap: var(--pas); justify-content: flex-end; }
+.pied.fixe { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom)); justify-content: center; }
