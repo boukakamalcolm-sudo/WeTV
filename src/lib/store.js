@@ -1,6 +1,8 @@
 // Local d'abord. L'écran lit et écrit dans IndexedDB, jamais sur le réseau.
 // La synchro part en arrière-plan et n'a pas le droit de bloquer un geste.
 
+import { supabase } from './supabase';
+
 const DB = 'tracker';
 const VERSION = 1;
 
@@ -35,9 +37,13 @@ async function tx(nom, mode, fn) {
 
 const all = (nom) => tx(nom, 'readonly', (s) => s.getAll());
 
+// Écrit sans passer par l'outbox : sert uniquement à la synchro elle-même,
+// pour noter localement l'id distant obtenu après un envoi réussi.
+const local = (nom, valeur) => tx(nom, 'readwrite', (s) => s.put(valeur));
+
 // Toute écriture locale dépose sa jumelle dans l'outbox. La synchro vide l'outbox plus tard.
 async function ecrire(nom, valeur) {
-  const id = await tx(nom, 'readwrite', (s) => s.put(valeur));
+  const id = await local(nom, valeur);
   await tx('outbox', 'readwrite', (s) => s.put({ table: nom, valeur, at: Date.now() }));
   planifierSync();
   return id;
@@ -74,8 +80,13 @@ export async function cocher({ itemId, season, episode, runtimeMin, airDate, pla
 }
 
 export async function decocher(localId) {
+  // L'id distant part avec la suppression : une fois le local effacé, plus rien
+  // ne permettra de retrouver la ligne à retirer côté Supabase.
+  const existante = (await entries()).find((e) => e.localId === localId);
   await tx('entries', 'readwrite', (s) => s.delete(localId));
-  await tx('outbox', 'readwrite', (s) => s.put({ table: 'entries', suppression: localId, at: Date.now() }));
+  await tx('outbox', 'readwrite', (s) => s.put({
+    table: 'entries', suppression: localId, remoteId: existante?.remoteId ?? null, at: Date.now(),
+  }));
   planifierSync();
 }
 
@@ -144,23 +155,112 @@ export async function telechargerExport() {
   URL.revokeObjectURL(a.href);
 }
 
-// Synchro : regroupée, différée, silencieuse. Si elle échoue, l'outbox attend.
+// Synchro : différée, silencieuse, un lot à la fois. Sans clé Supabase configurée,
+// l'app reste pleinement fonctionnelle en local, la file grossit sans jamais se vider.
 let timer;
 function planifierSync() {
   clearTimeout(timer);
   timer = setTimeout(vider, 3000);
 }
 
+// items et preferences ont une clé naturelle (tmdb_id, media_type) côté Supabase :
+// l'upsert suffit, aucun id distant à conserver localement.
+async function pousserItem(valeur) {
+  const { data, error } = await supabase
+    .from('items')
+    .upsert({
+      tmdb_id: valeur.tmdbId,
+      media_type: valeur.mediaType,
+      title: valeur.title,
+      poster_path: valeur.posterPath ?? null,
+      genres: valeur.genres ?? [],
+      status: valeur.status,
+    }, { onConflict: 'tmdb_id,media_type' })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+async function pousserPreference(valeur) {
+  const { error } = await supabase
+    .from('preferences')
+    .upsert({
+      tmdb_id: valeur.tmdbId,
+      media_type: valeur.mediaType,
+      verdict: valeur.verdict,
+      source: valeur.source,
+    }, { onConflict: 'tmdb_id,media_type' });
+  if (error) throw error;
+}
+
+// entries n'a pas de clé naturelle (revoir un épisode doit pouvoir créer une
+// seconde ligne) : on garde son id distant localement pour les mises à jour
+// futures (ex. annoter), et on résout l'item parent au passage.
+async function pousserEntree(valeur) {
+  const item = (await items()).find((i) => i.localId === valeur.itemId);
+  if (!item) return null; // l'item a disparu localement, rien à rattacher
+  const itemRemoteId = await pousserItem(item);
+
+  const ligne = {
+    item_id: itemRemoteId,
+    season: valeur.season ?? null,
+    episode: valeur.episode ?? null,
+    watched_at: new Date(valeur.watchedAt).toISOString(),
+    runtime_min: valeur.runtimeMin ?? null,
+    platform: valeur.platform ?? null,
+    rating: valeur.rating ?? null,
+    comment: valeur.comment ?? null,
+    air_date: valeur.airDate ?? null,
+  };
+
+  if (valeur.remoteId) {
+    const { error } = await supabase.from('entries').update(ligne).eq('id', valeur.remoteId);
+    if (error) throw error;
+    return valeur.remoteId;
+  }
+
+  const { data, error } = await supabase.from('entries').insert(ligne).select('id').single();
+  if (error) throw error;
+  return data.id;
+}
+
+async function supprimerEntree(remoteId) {
+  if (!remoteId) return; // jamais envoyée, rien à retirer côté serveur
+  const { error } = await supabase.from('entries').delete().eq('id', remoteId);
+  if (error) throw error;
+}
+
+async function envoyerLot(lot) {
+  if (lot.suppression != null) {
+    if (lot.table === 'entries') await supprimerEntree(lot.remoteId);
+    return;
+  }
+  if (lot.table === 'items') return pousserItem(lot.valeur);
+  if (lot.table === 'preferences') return pousserPreference(lot.valeur);
+  if (lot.table === 'entries') {
+    const remoteId = await pousserEntree(lot.valeur);
+    // On note l'id distant sur l'enregistrement local, pour que la prochaine
+    // modification (ex. annoter) mette à jour la même ligne au lieu d'en créer une autre.
+    if (remoteId && remoteId !== lot.valeur.remoteId) {
+      await local('entries', { ...lot.valeur, remoteId });
+    }
+  }
+}
+
+// Chaque lot est retiré de la file dès qu'il réussit : un échec isolé n'entraîne
+// ni doublon (les lots déjà passés ne repartent pas) ni blocage des suivants.
 async function vider() {
-  if (!navigator.onLine) return;
+  if (!supabase || !navigator.onLine) return;
   const lots = await all('outbox');
-  if (!lots.length) return;
-  try {
-    // Remplacer par l'appel Supabase. Un seul aller-retour pour tout le lot.
-    // await supabase.rpc('sync_batch', { lots });
-    await tx('outbox', 'readwrite', (s) => s.clear());
-  } catch {
-    // On garde l'outbox intacte, on retentera. L'utilisateur n'en sait rien.
+  for (const lot of lots) {
+    try {
+      await envoyerLot(lot);
+      await tx('outbox', 'readwrite', (s) => s.delete(lot.localId));
+    } catch {
+      // Ce lot reste dans la file, on le retentera au prochain passage.
+      // L'utilisateur n'en sait rien.
+    }
   }
 }
 

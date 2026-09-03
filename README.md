@@ -12,9 +12,14 @@ Créer un `.env` à partir de `.env.example` :
 
 ```
 VITE_TMDB_KEY=votre_cle
+VITE_SUPABASE_URL=votre_url_supabase
+VITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase
 ```
 
 La clé TMDB s'obtient gratuitement sur themoviedb.org, dans Paramètres puis API, pour un usage non commercial.
+
+Les deux variables Supabase sont facultatives : sans elles, l'app reste pleinement
+fonctionnelle en local (IndexedDB), la synchro ne fait simplement rien.
 
 ```
 npm run dev
@@ -26,7 +31,9 @@ Le fichier `schema.sql` se joue tel quel dans l'éditeur SQL de Supabase.
 
 `schema.sql` définit les quatre tables et les vues de restitution. `items` pour ce qui est suivi, `entries` pour chaque visionnage avec sa note et son commentaire, `preferences` pour les verdicts du tri, `recommendations` pour les scores calculés en lot.
 
-`src/lib/store.js` porte le principe local d'abord. Chaque écriture va dans IndexedDB et dépose sa jumelle dans une file d'attente, vidée trois secondes plus tard en arrière-plan. Aucun geste n'attend le réseau. L'export JSON est là dès le départ.
+`src/lib/store.js` porte le principe local d'abord. Chaque écriture va dans IndexedDB et dépose sa jumelle dans une file d'attente, vidée trois secondes plus tard en arrière-plan vers Supabase (si configuré), un lot à la fois pour qu'un échec isolé ne bloque ni ne double les autres. Aucun geste n'attend le réseau. L'export JSON est là dès le départ.
+
+`src/lib/supabase.js` crée le client à partir des variables d'environnement, ou reste `null` si elles sont absentes.
 
 `src/lib/tmdb.js` couvre la recherche, la fiche, les saisons, les titres proches et l'exploration par genre. Une fonction de normalisation unique garantit que le reste de l'application ne connaît qu'une seule forme d'objet.
 
@@ -44,7 +51,16 @@ Le fichier `schema.sql` se joue tel quel dans l'éditeur SQL de Supabase.
 
 ## Ce qui reste à faire
 
-Le service worker pour le hors connexion, les icônes du manifeste, la synchro Supabase réelle à la place du bloc laissé en commentaire dans `store.js`, puis les récits du deuxième lot : calendrier, liste d'envies, tableau de bord, journal des commentaires, plateformes de streaming, réimport.
+Le service worker pour le hors connexion, les icônes du manifeste, puis les récits du deuxième lot : calendrier, liste d'envies, tableau de bord, journal des commentaires, plateformes de streaming, réimport.
+
+La synchro Supabase n'envoie que dans un sens (local vers distant) : elle sert de
+sauvegarde, pas encore de vraie synchro multi-appareil. Rien ne redescend le
+distant vers un nouvel appareil ni ne fusionne deux historiques locaux divergents.
+
+Les tables Supabase n'ont pas de policies RLS : la clé anon publique dans le
+bundle client peut lire et écrire toutes les lignes. Acceptable pour un usage
+strictement personnel avec la clé non partagée, mais à corriger avant tout
+partage du projet.
 
 ## Deux points à ne pas défaire
 
