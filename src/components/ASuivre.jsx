@@ -48,18 +48,20 @@ function Carte({ serie, onValider }) {
       dragElastic={0.25}
       onDragEnd={(_, info) => { if (info.offset.x > 110) onValider(); }}
     >
-      <img
-        src={poster(serie.posterPath)}
-        alt=""
-        width="64"
-        height="96"
-        loading="lazy"
-      />
+      <a className="carte-lien" href={`#/titre/tv/${serie.tmdbId}`}>
+        <img
+          src={poster(serie.posterPath)}
+          alt=""
+          width="64"
+          height="96"
+          loading="lazy"
+        />
 
-      <div className="texte">
-        <h2>{serie.title}</h2>
-        <p>Saison {serie.prochaine}, épisode {serie.prochain}</p>
-      </div>
+        <div className="texte">
+          <h2>{serie.title}</h2>
+          <p>Saison {serie.prochaine}, épisode {serie.prochain}</p>
+        </div>
+      </a>
 
       {/* Alternative non gestuelle au balayage, exigée par le critère 14.4 du RGAA.
           C'est aussi le chemin le plus fiable à une main. */}

@@ -33,15 +33,17 @@ export default function Recherche({ onAjout }) {
       <ul className="resultats" aria-busy={charge}>
         {res.map((t) => (
           <li key={`${t.mediaType}-${t.tmdbId}`} className="ligne">
-            <img src={poster(t.posterPath)} alt="" width="48" height="72" loading="lazy" />
-            <div className="texte">
-              <h2>{t.title}</h2>
-              <p>
-                {t.mediaType === 'tv' ? 'Série' : 'Film'}
-                {t.documentaire && ' documentaire'}
-                {t.year && ` · ${t.year}`}
-              </p>
-            </div>
+            <a className="ligne-lien" href={`#/titre/${t.mediaType}/${t.tmdbId}`}>
+              <img src={poster(t.posterPath)} alt="" width="48" height="72" loading="lazy" />
+              <div className="texte">
+                <h2>{t.title}</h2>
+                <p>
+                  {t.mediaType === 'tv' ? 'Série' : 'Film'}
+                  {t.documentaire && ' documentaire'}
+                  {t.year && ` · ${t.year}`}
+                </p>
+              </div>
+            </a>
             <button
               type="button"
               className="action"
