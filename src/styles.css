@@ -48,6 +48,10 @@ h2 { font-size: 1rem; font-weight: 560; margin: 0; }
 .carte img { border-radius: 6px; display: block; object-fit: cover; }
 .carte .texte p { margin: 2px 0 0; color: var(--secondaire); font-size: 0.875rem; }
 
+/* display: contents laisse les enfants du lien participer directement à la
+   grille du parent, sans ajouter de niveau ni casser la mise en page. */
+.carte-lien, .ligne-lien { display: contents; color: inherit; text-decoration: none; }
+
 .valider {
   min-width: var(--tactile);
   min-height: var(--tactile);

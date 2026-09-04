@@ -163,8 +163,9 @@ function planifierSync() {
   timer = setTimeout(vider, 3000);
 }
 
-// items et preferences ont une clé naturelle (tmdb_id, media_type) côté Supabase :
-// l'upsert suffit, aucun id distant à conserver localement.
+// items et preferences ont une clé naturelle (user_id, tmdb_id, media_type) côté
+// Supabase : l'upsert suffit, aucun id distant à conserver localement. user_id
+// est posé par la base elle-même (colonne par défaut à auth.uid()), jamais par le client.
 async function pousserItem(valeur) {
   const { data, error } = await supabase
     .from('items')
@@ -175,7 +176,7 @@ async function pousserItem(valeur) {
       poster_path: valeur.posterPath ?? null,
       genres: valeur.genres ?? [],
       status: valeur.status,
-    }, { onConflict: 'tmdb_id,media_type' })
+    }, { onConflict: 'user_id,tmdb_id,media_type' })
     .select('id')
     .single();
   if (error) throw error;
@@ -190,7 +191,7 @@ async function pousserPreference(valeur) {
       media_type: valeur.mediaType,
       verdict: valeur.verdict,
       source: valeur.source,
-    }, { onConflict: 'tmdb_id,media_type' });
+    }, { onConflict: 'user_id,tmdb_id,media_type' });
   if (error) throw error;
 }
 
@@ -252,6 +253,10 @@ async function envoyerLot(lot) {
 // ni doublon (les lots déjà passés ne repartent pas) ni blocage des suivants.
 async function vider() {
   if (!supabase || !navigator.onLine) return;
+  // Sans session, auth.uid() est nul côté base et la RLS refuse toute écriture :
+  // inutile d'essayer, la file resterait pleine à chaque tentative.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
   const lots = await all('outbox');
   for (const lot of lots) {
     try {
@@ -265,3 +270,8 @@ async function vider() {
 }
 
 window.addEventListener('online', vider);
+
+// Appelé aussi à la connexion : la file peut contenir des écritures faites
+// avant que l'utilisateur ne se connecte, elles ne partiraient sinon qu'au
+// prochain geste.
+export const synchroniser = vider;

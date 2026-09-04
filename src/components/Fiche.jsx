@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { details, season as saisonTmdb, poster } from '../lib/tmdb';
 import { teinteAffiche, habillage } from '../lib/couleur';
-import { cocher, decocher, cocherSaison, annoter, entriesDe, itemParTmdb } from '../lib/store';
+import { cocher, decocher, cocherSaison, annoter, entriesDe, itemParTmdb, ajouterItem } from '../lib/store';
 
 export default function Fiche({ tmdbId, mediaType }) {
   const [fiche, setFiche] = useState(null);
@@ -41,20 +41,51 @@ export default function Fiche({ tmdbId, mediaType }) {
     [vus, saison]
   );
 
-  const rafraichir = async () => item && setVus(await entriesDe(item.localId));
+  const rafraichir = async (itemActuel = item) => itemActuel && setVus(await entriesDe(itemActuel.localId));
+
+  // Regarder un épisode vaut suivre le titre : pas besoin d'être passé par "Suivre"
+  // avant de pouvoir cocher depuis une fiche ouverte au fil d'une recherche.
+  const assurerItem = async () => {
+    if (item) return item;
+    await ajouterItem({
+      tmdbId, mediaType,
+      title: fiche.name ?? fiche.title,
+      posterPath: fiche.poster_path,
+      genres: (fiche.genres ?? []).map((g) => g.id),
+    });
+    const nouveau = await itemParTmdb(tmdbId, mediaType);
+    setItem(nouveau);
+    return nouveau;
+  };
 
   // Cochage optimiste : l'état bascule avant l'écriture, jamais après.
   const basculer = async (ep) => {
-    if (!item) return;
     const existante = vus.find((e) => e.season === saison && e.episode === ep.numero);
     if (existante) {
       setVus((v) => v.filter((e) => e.localId !== existante.localId));
       await decocher(existante.localId);
-    } else {
-      setVus((v) => [...v, { season: saison, episode: ep.numero, localId: -Date.now() }]);
-      await cocher({ itemId: item.localId, season: saison, episode: ep.numero, runtimeMin: ep.duree, airDate: ep.diffusion });
+      rafraichir();
+      return;
     }
-    rafraichir();
+    setVus((v) => [...v, { season: saison, episode: ep.numero, localId: -Date.now() }]);
+    const itemActuel = await assurerItem();
+    await cocher({ itemId: itemActuel.localId, season: saison, episode: ep.numero, runtimeMin: ep.duree, airDate: ep.diffusion });
+    rafraichir(itemActuel);
+  };
+
+  // Un film n'a ni saison ni épisode : une seule entrée fait foi.
+  const dejaVu = mediaType === 'movie' && vus.length > 0;
+  const basculerFilm = async () => {
+    if (dejaVu) {
+      const existante = vus[0];
+      setVus([]);
+      await decocher(existante.localId);
+      return;
+    }
+    setVus((v) => [...v, { localId: -Date.now() }]);
+    const itemActuel = await assurerItem();
+    await cocher({ itemId: itemActuel.localId, season: null, episode: null, runtimeMin: fiche.runtime ?? null });
+    rafraichir(itemActuel);
   };
 
   if (!fiche) return <div className="ecran" aria-busy="true" />;
@@ -88,8 +119,9 @@ export default function Fiche({ tmdbId, mediaType }) {
               type="button"
               className="action"
               onClick={async () => {
-                await cocherSaison({ itemId: item.localId, season: saison, episodes });
-                rafraichir();
+                const itemActuel = await assurerItem();
+                await cocherSaison({ itemId: itemActuel.localId, season: saison, episodes });
+                rafraichir(itemActuel);
               }}
             >
               Tout cocher
@@ -139,6 +171,18 @@ export default function Fiche({ tmdbId, mediaType }) {
             })}
           </ul>
         </>
+      )}
+
+      {mediaType === 'movie' && (
+        <button
+          type="button"
+          className="action coche"
+          aria-pressed={dejaVu}
+          onClick={basculerFilm}
+        >
+          <span aria-hidden="true">{dejaVu ? '✓' : ''}</span>
+          <span className="libelle">{dejaVu ? 'Vu' : 'Marquer comme vu'}</span>
+        </button>
       )}
 
       {annote && (
