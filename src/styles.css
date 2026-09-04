@@ -161,10 +161,13 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Découverte --- */
 
-/* Une rangée par type de titre, chacune défilant horizontalement :
-   on reconnaît plus vite dans sa propre catégorie qu'un ensemble mélangé. */
-.rangee { display: grid; gap: var(--pas); }
-.rangee-titre { display: flex; align-items: center; gap: 6px; }
+/* Deux grandes catégories (Séries, Films), chacune détaillée en rangées de
+   genre défilant horizontalement : plus facile à parcourir qu'un ensemble mélangé. */
+.grande-categorie { display: grid; gap: calc(var(--pas) * 1.5); margin-top: calc(var(--pas) * 2); }
+.categorie-titre { display: flex; align-items: center; gap: 6px; margin: 0; }
+
+.rangee { display: grid; gap: 6px; }
+.rangee-titre { margin: 0; font-size: 0.875rem; font-weight: 560; color: var(--secondaire); }
 
 .defilement {
   list-style: none; margin: 0; padding: 2px 2px calc(var(--pas) / 2);

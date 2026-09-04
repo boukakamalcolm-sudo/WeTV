@@ -24,6 +24,7 @@ function useRoute() {
 
 const CLE_BIENVENUE = 'tracker_bienvenue_vue';
 const CLE_SANS_COMPTE = 'tracker_sans_compte';
+const CLE_AMORCE_PASSEE = 'tracker_amorcage_passee';
 
 export default function App() {
   const route = useRoute();
@@ -32,7 +33,9 @@ export default function App() {
   const [sansCompte, setSansCompte] = useState(() => !!localStorage.getItem(CLE_SANS_COMPTE));
   const [utilisateur, setUtilisateur] = useState(undefined); // undefined = pas encore vérifié
 
-  useEffect(() => { preferences().then((p) => setAmorce(p.length > 0)); }, []);
+  useEffect(() => {
+    preferences().then((p) => setAmorce(p.length > 0 || !!localStorage.getItem(CLE_AMORCE_PASSEE)));
+  }, []);
   useEffect(() => onAuthChange((u) => {
     setUtilisateur(u);
     if (u) synchroniser();
@@ -65,7 +68,16 @@ export default function App() {
   }
 
   if (amorce === null) return null;
-  if (!amorce) return <Amorcage onFini={() => setAmorce(true)} />;
+  if (!amorce) {
+    return (
+      <Amorcage
+        onFini={() => {
+          localStorage.setItem(CLE_AMORCE_PASSEE, '1');
+          setAmorce(true);
+        }}
+      />
+    );
+  }
 
   const fiche = route.match(/^\/titre\/(tv|movie)\/(\d+)$/);
 
