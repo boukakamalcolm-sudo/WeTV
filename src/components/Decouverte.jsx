@@ -8,10 +8,10 @@ import { jugerTitre, ajouterItem } from '../lib/store';
 // d'un coup d'oeil. Puis le tri carte à carte, qui affine en continu.
 
 export function Amorcage({ onFini }) {
-  const [titres, setTitres] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [choisis, setChoisis] = useState(new Set());
 
-  useEffect(() => { grilleAmorcage().then(setTitres); }, []);
+  useEffect(() => { grilleAmorcage().then(setCategories); }, []);
 
   const basculer = (t) => {
     const cle = `${t.mediaType}:${t.tmdbId}`;
@@ -23,7 +23,8 @@ export function Amorcage({ onFini }) {
   };
 
   const valider = async () => {
-    for (const t of titres) {
+    const tous = categories.flatMap((c) => c.titres);
+    for (const t of tous) {
       const cle = `${t.mediaType}:${t.tmdbId}`;
       await jugerTitre({
         tmdbId: t.tmdbId,
@@ -36,29 +37,41 @@ export function Amorcage({ onFini }) {
   };
 
   return (
-    <section className="ecran">
-      <h1>Ce que tu as aimé</h1>
-      <p className="secondaire">Touche les titres que tu as vus et appréciés. Cinq suffisent pour démarrer.</p>
+    <section className="ecran amorcage">
+      <h1>👋 Bienvenue dans ta bibliothèque</h1>
+      <p className="secondaire">
+        Touche les titres que tu as déjà vus et appréciés. Cinq suffisent pour démarrer :
+        ça sert à calibrer tes premières suggestions sur <strong>Découvrir</strong>, en te
+        proposant à la fois des titres proches de tes goûts et, volontairement, quelques
+        pistes différentes — pour ne pas t'enfermer dans les mêmes recommandations.
+      </p>
 
-      <ul className="grille">
-        {titres.map((t) => {
-          const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
-          return (
-            <li key={`${t.mediaType}-${t.tmdbId}`}>
-              <button
-                type="button"
-                className={actif ? 'vignette choisie' : 'vignette'}
-                aria-pressed={actif}
-                onClick={() => basculer(t)}
-              >
-                <img src={poster(t.posterPath)} alt={t.title} loading="lazy" />
-                {/* L'état choisi n'est pas porté par la seule couleur. */}
-                {actif && <span className="marque" aria-hidden="true">✓</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {categories.map((cat) => (
+        <div className="rangee" key={cat.cle}>
+          <h2 className="rangee-titre">
+            <span aria-hidden="true">{cat.emoji}</span> {cat.label}
+          </h2>
+          <ul className="defilement">
+            {cat.titres.map((t) => {
+              const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
+              return (
+                <li key={`${t.mediaType}-${t.tmdbId}`}>
+                  <button
+                    type="button"
+                    className={actif ? 'vignette choisie' : 'vignette'}
+                    aria-pressed={actif}
+                    onClick={() => basculer(t)}
+                  >
+                    <img src={poster(t.posterPath)} alt={t.title} loading="lazy" />
+                    {/* L'état choisi n'est pas porté par la seule couleur. */}
+                    {actif && <span className="marque" aria-hidden="true">✅</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
 
       <div className="pied fixe">
         <button type="button" className="action primaire" onClick={valider} disabled={!choisis.size}>

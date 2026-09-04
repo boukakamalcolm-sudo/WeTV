@@ -17,9 +17,13 @@ async function dejaVus() {
 
 // Grille d'amorçage : des titres très connus, qu'on reconnaît d'un coup d'oeil.
 // Plus rapide que le tri carte à carte pour démarrer, parce qu'on balaye l'ensemble.
-export async function grilleAmorcage(taille = 40) {
+// Rangée par type plutôt que mélangés : on reconnaît plus vite dans sa propre catégorie.
+export async function grilleAmorcage(tailleParType = 20) {
   const [series, films] = await Promise.all([populaires('tv'), populaires('movie')]);
-  return melanger([...series, ...films]).slice(0, taille);
+  return [
+    { cle: 'tv', emoji: '📺', label: 'Séries', titres: melanger(series).slice(0, tailleParType) },
+    { cle: 'movie', emoji: '🎬', label: 'Films', titres: melanger(films).slice(0, tailleParType) },
+  ];
 }
 
 export async function propositions(taille = 20) {
