@@ -4,7 +4,6 @@
 const BASE = 'https://api.themoviedb.org/3';
 const KEY = import.meta.env.VITE_TMDB_KEY;
 const LANG = 'fr-FR';
-const REGION = 'FR';
 
 const IMG = 'https://image.tmdb.org/t/p';
 // w185 pour les listes, w500 seulement pour la fiche. Sur mobile, w500 partout se voit.
@@ -45,10 +44,6 @@ export const season = (id, n) => get(`/tv/${id}/season/${n}`);
 // Titres proches. Suffit largement pour recommander tant qu'on a peu de données.
 export const similar = (type, id) =>
   get(`/${type}/${id}/similar`).then((d) => d.results.map(normalise));
-
-// De quoi alimenter l'onboarding : populaire, mais varié.
-export const populaires = (type, page = 1) =>
-  get(`/${type}/popular`, { page, region: REGION }).then((d) => d.results.map(normalise));
 
 // Exploration : un genre ou une décennie que je n'ai jamais touchés.
 export const decouvrir = (type, { genre, avant, apres, page = 1 }) =>

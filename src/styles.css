@@ -138,7 +138,7 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Listes et fiche --- */
 
-.resultats, .episodes, .grille { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pas); }
+.resultats, .episodes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pas); }
 
 .ligne, .episode {
   display: grid; grid-template-columns: auto 1fr auto; gap: var(--pas);
@@ -161,11 +161,34 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Découverte --- */
 
-.grille { grid-template-columns: repeat(3, 1fr); }
-.vignette { padding: 0; border: 2px solid transparent; border-radius: var(--rayon); background: none; position: relative; cursor: pointer; }
-.vignette img { width: 100%; display: block; border-radius: calc(var(--rayon) - 2px); }
+/* Deux grandes catégories (Séries, Films), chacune détaillée en rangées de
+   genre défilant horizontalement : plus facile à parcourir qu'un ensemble mélangé. */
+.grande-categorie { display: grid; gap: calc(var(--pas) * 1.5); margin-top: calc(var(--pas) * 2); }
+.categorie-titre { display: flex; align-items: center; gap: 6px; margin: 0; }
+
+.rangee { display: grid; gap: 6px; }
+.rangee-titre { margin: 0; font-size: 0.875rem; font-weight: 560; color: var(--secondaire); }
+
+.defilement {
+  list-style: none; margin: 0; padding: 2px 2px calc(var(--pas) / 2);
+  display: flex; gap: var(--pas);
+  overflow-x: auto; scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.defilement li { flex: 0 0 auto; scroll-snap-align: start; width: 104px; }
+
+.vignette { padding: 0; width: 100%; border: 2px solid transparent; border-radius: var(--rayon); background: none; position: relative; cursor: pointer; }
+.vignette img { width: 100%; display: block; border-radius: calc(var(--rayon) - 2px); transition: filter 0.15s ease; }
 .vignette.choisie { border-color: var(--texte); }
-.marque { position: absolute; right: 6px; bottom: 6px; background: var(--texte); color: var(--fond); border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; font-size: 0.75rem; }
+/* La photo s'assombrit et la coche vient se centrer dessus : l'état choisi
+   se voit d'un coup d'oeil, jamais par la seule bordure. */
+.vignette.choisie img { filter: brightness(0.4); }
+.marque {
+  position: absolute; inset: 0; margin: auto;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  font-size: 1.5rem;
+}
 
 .carte-tri { background: var(--surface); border-radius: var(--rayon); overflow: hidden; touch-action: pan-y; }
 .carte-tri img { width: 100%; display: block; }
