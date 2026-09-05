@@ -161,23 +161,20 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Découverte --- */
 
-/* Deux grandes catégories (Séries, Films), en accordéon : chacune repliable,
-   détaillée en rangées de genre défilant horizontalement une fois ouverte. */
-.grande-categorie { margin-top: calc(var(--pas) * 2); }
-.grande-categorie > .rangee { margin-top: calc(var(--pas) * 1.5); }
+/* Un type à la fois (onglets), un genre à la fois (puces), une seule rangée
+   d'affiches : la hauteur d'écran ne bouge jamais, pas d'effet catalogue. */
+.onglets-type { display: flex; gap: var(--pas); }
+.onglets-type .action { flex: 1; }
 
-.categorie-titre {
-  display: flex; align-items: center; gap: 6px;
-  min-height: var(--tactile); cursor: pointer;
-  font-size: 1.25rem; font-weight: 620;
-  list-style: none;                      /* on dessine notre propre chevron */
+.puces-genre { display: flex; flex-wrap: wrap; gap: 6px; }
+.puce {
+  min-height: var(--tactile); padding: 0 calc(var(--pas) * 1.25);
+  border: 1px solid var(--trait); border-radius: 999px;
+  background: transparent; color: var(--secondaire);
+  font: inherit; font-size: 0.8125rem; cursor: pointer;
 }
-.categorie-titre::-webkit-details-marker { display: none; }
-.categorie-titre .chevron { margin-left: auto; color: var(--secondaire); transition: transform 0.15s ease; }
-.grande-categorie[open] .categorie-titre .chevron { transform: rotate(90deg); }
-
-.rangee { display: grid; gap: 6px; }
-.rangee-titre { margin: 0; font-size: 0.875rem; font-weight: 560; color: var(--secondaire); }
+/* L'état actif ne tient pas qu'à la couleur : bordure et graisse changent aussi. */
+.puce.active { border-color: var(--texte); color: var(--texte); font-weight: 620; }
 
 .defilement {
   list-style: none; margin: 0; padding: 2px 2px calc(var(--pas) / 2);
