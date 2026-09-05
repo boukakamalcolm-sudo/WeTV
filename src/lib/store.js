@@ -91,3 +91,64 @@ async function envoyerLot(lot){if(lot.suppression!=null){if(lot.table==='entries
 async function vider(){if(!supabase||!navigator.onLine)return;const{data:{session}}=await supabase.auth.getSession();if(!session)return;const lots=await all('outbox');for(const lot of lots){try{await envoyerLot(lot);await tx('outbox','readwrite',s=>s.delete(lot.localId));}catch{}}}
 window.addEventListener('online',vider);
 export const synchroniser=vider;
+
+// Rapatrie les données Supabase vers IndexedDB : sans ça, se connecter sur un
+// nouvel appareil avec le même compte ne montre rien, faute d'avoir jamais
+// rien téléchargé (la synchro n'allait jusqu'ici que dans un sens). Écrit
+// directement en local (jamais via ecrire()) pour ne pas repousser vers
+// Supabase des données qui en viennent déjà.
+export async function telecharger() {
+  if (!supabase) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  const [itemsR, entriesR, prefsR] = await Promise.all([
+    supabase.from('items').select('*'),
+    supabase.from('entries').select('*'),
+    supabase.from('preferences').select('*'),
+  ]);
+  if (itemsR.error || entriesR.error || prefsR.error) return;
+
+  // items : aucun doublon possible, la correspondance locale se fait par
+  // (tmdbId, mediaType) — la même clé que la contrainte unique côté serveur.
+  const itemsLocaux = await items();
+  const parTmdbItem = new Map(itemsLocaux.map((i) => [`${i.tmdbId}:${i.mediaType}`, i]));
+  const remoteIdVersLocalId = new Map();
+  for (const r of itemsR.data ?? []) {
+    const existant = parTmdbItem.get(`${r.tmdb_id}:${r.media_type}`);
+    const valeur = {
+      tmdbId: r.tmdb_id, mediaType: r.media_type, title: r.title,
+      posterPath: r.poster_path, genres: r.genres ?? [], status: r.status,
+      addedAt: existant?.addedAt ?? new Date(r.added_at).getTime(),
+      updatedAt: new Date(r.updated_at).getTime(),
+    };
+    const localId = await local('items', existant ? { ...valeur, localId: existant.localId } : valeur);
+    remoteIdVersLocalId.set(r.id, existant?.localId ?? localId);
+  }
+
+  // entries : pas de contrainte d'unicité côté serveur (un rewatch est une
+  // ligne de plus), donc le seul dédoublonnage fiable est le remoteId déjà
+  // connu localement une fois qu'une entrée a été poussée au moins une fois.
+  const entriesLocales = await entries();
+  const remoteIdsConnus = new Set(entriesLocales.filter((e) => e.remoteId != null).map((e) => e.remoteId));
+  for (const r of entriesR.data ?? []) {
+    if (remoteIdsConnus.has(r.id)) continue;
+    const itemId = remoteIdVersLocalId.get(r.item_id);
+    if (itemId == null) continue;
+    await local('entries', {
+      itemId, season: r.season, episode: r.episode,
+      watchedAt: new Date(r.watched_at).getTime(), runtimeMin: r.runtime_min,
+      platform: r.platform, rating: r.rating, comment: r.comment, airDate: r.air_date,
+      remoteId: r.id,
+    });
+  }
+
+  // preferences : correspondance locale par (tmdbId, mediaType), comme items.
+  const prefsLocales = await preferences();
+  const parTmdbPref = new Map(prefsLocales.map((p) => [`${p.tmdbId}:${p.mediaType}`, p]));
+  for (const r of prefsR.data ?? []) {
+    const existant = parTmdbPref.get(`${r.tmdb_id}:${r.media_type}`);
+    const valeur = { tmdbId: r.tmdb_id, mediaType: r.media_type, verdict: r.verdict, source: r.source, decidedAt: new Date(r.decided_at).getTime() };
+    await local('preferences', existant ? { ...valeur, localId: existant.localId } : valeur);
+  }
+}
