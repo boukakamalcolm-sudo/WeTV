@@ -1,53 +1,83 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { aSuivre, cocher, items, entries } from '../lib/store';
-import { poster } from '../lib/tmdb';
-
-const fallbackCards = [
-  { title: 'Severance', meta: 'Saison 2 • Épisode 6', progress: 64, art: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80' },
-  { title: 'The Bear', meta: 'Saison 3 • Épisode 4', progress: 38, art: 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80' },
-  { title: 'Dune: Part Two', meta: 'Film • 47%', progress: 47, art: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80' },
-];
+import { poster, season } from '../lib/tmdb';
 
 export default function WatchFlowHome() {
-  const [watching, setWatching] = useState(null);
+  const [watching, setWatching] = useState([]);
   const [recent, setRecent] = useState([]);
   const [stats, setStats] = useState({ hours: 0, episodes: 0, movies: 0, favorite: '—' });
+  const [loading, setLoading] = useState(true);
 
   async function load() {
-    const [next, allItems, allEntries] = await Promise.all([aSuivre(), items(), entries()]);
-    setWatching(next);
-    const sorted = [...allEntries].sort((a, b) => b.watchedAt - a.watchedAt).slice(0, 5).map((entry) => ({
-      ...entry,
-      item: allItems.find((i) => i.localId === entry.itemId),
-    }));
-    setRecent(sorted);
-    const total = allEntries.reduce((sum, e) => sum + Number(e.runtimeMin || 0), 0);
-    const episodeCount = allEntries.filter((e) => e.episode != null).length;
-    const movieCount = allEntries.filter((e) => e.episode == null).length;
-    const counts = new Map();
-    for (const e of allEntries) counts.set(e.itemId, (counts.get(e.itemId) || 0) + 1);
-    const fav = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    const favTitle = allItems.find((i) => i.localId === fav)?.title || '—';
-    setStats({ hours: Math.round((total / 60) * 10) / 10, episodes: episodeCount, movies: movieCount, favorite: favTitle });
+    setLoading(true);
+    try {
+      const [next, allItems, allEntries] = await Promise.all([aSuivre(), items(), entries()]);
+      const itemById = new Map(allItems.map((i) => [i.localId, i]));
+      const watchedByItem = new Map();
+      for (const e of allEntries) {
+        if (!watchedByItem.has(e.itemId)) watchedByItem.set(e.itemId, []);
+        watchedByItem.get(e.itemId).push(e);
+      }
+
+      const cards = next.map((show) => {
+        const item = itemById.get(show.localId);
+        const watched = watchedByItem.get(show.localId) || [];
+        const watchedEpisodes = watched.filter((e) => e.episode != null).length;
+        const estimatedTotal = Number(show.totalEpisodes || item?.totalEpisodes || 0);
+        const progress = estimatedTotal ? Math.min(100, Math.round((watchedEpisodes / estimatedTotal) * 100)) : 0;
+        return { ...show, item, progress, art: poster(show.posterPath || item?.posterPath, 'w780') };
+      });
+
+      cards.sort((a, b) => {
+        if (a.item?.status === 'completed' && b.item?.status !== 'completed') return 1;
+        if (a.item?.status !== 'completed' && b.item?.status === 'completed') return -1;
+        return (b.item?.updatedAt || 0) - (a.item?.updatedAt || 0);
+      });
+      setWatching(cards);
+
+      const sortedRecent = [...allEntries]
+        .sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
+        .slice(0, 5)
+        .map((entry) => ({ ...entry, item: itemById.get(entry.itemId) }));
+      setRecent(sortedRecent);
+
+      const total = allEntries.reduce((sum, e) => sum + Number(e.runtimeMin || 0), 0);
+      const episodeCount = allEntries.filter((e) => e.episode != null).length;
+      const movieCount = allEntries.filter((e) => e.episode == null).length;
+      const counts = new Map();
+      for (const e of allEntries) counts.set(e.itemId, (counts.get(e.itemId) || 0) + 1);
+      const fav = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      const favTitle = itemById.get(fav)?.title || '—';
+      setStats({ hours: Math.round((total / 60) * 10) / 10, episodes: episodeCount, movies: movieCount, favorite: favTitle });
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { load(); window.addEventListener('focus', load); return () => window.removeEventListener('focus', load); }, []);
-
-  const live = watching?.length ? watching.slice(0, 3).map((show, index) => ({ ...show, progress: Math.min(92, 18 + index * 17), art: poster(show.posterPath, 'w780') })) : fallbackCards;
+  useEffect(() => {
+    load();
+    const refresh = () => load();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('tracker:updated', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('tracker:updated', refresh);
+    };
+  }, []);
 
   async function markAsSeen(show) {
-    await cocher({ itemId: show.localId, season: show.prochaine, episode: show.prochain, runtimeMin: show.runtimeMin });
-    await load();
+    await cocher({ itemId: show.localId, season: show.prochaine, episode: show.prochain, runtimeMin: show.runtimeMin, watchedAt: new Date().toISOString() });
+    window.dispatchEvent(new CustomEvent('tracker:updated'));
   }
 
   return (
     <div className="watchflow-home">
       <section className="watchflow-head">
         <div>
-          <p className="eyebrow">SAMEDI 5 SEPTEMBRE</p>
+          <p className="eyebrow">TON SUIVI</p>
           <h1>Bonsoir Malcolm <span aria-hidden="true">👋</span></h1>
-          <p className="subtitle">Prêt à reprendre là où tu t'es arrêté ?</p>
+          <p className="subtitle">Reprends exactement là où tu t'es arrêté.</p>
         </div>
         <a className="watchflow-add" href="#/recherche">＋ Ajouter</a>
       </section>
@@ -55,23 +85,33 @@ export default function WatchFlowHome() {
       <section>
         <div className="section-title-row compact">
           <div><p className="eyebrow">EN COURS</p><h2>Continuer à regarder</h2></div>
-          <a className="link-btn" href="#/bibliotheque">Tout voir →</a>
+          {watching.length > 0 && <a className="link-btn" href="#/bibliotheque">Tout voir →</a>}
         </div>
-        <div className="watchflow-cards">
-          {live.map((show, index) => (
-            <motion.article key={`${show.tmdbId || show.title}-${index}`} className={`watchflow-card ${index === 0 ? 'featured' : ''}`} whileTap={{ scale: 0.99 }}>
-              <div className="watchflow-art" style={{ backgroundImage: `url(${show.art})` }} />
-              <div className="watchflow-overlay" />
-              <div className="watchflow-copy">
-                <span>{show.mediaType === 'movie' ? 'FILM' : 'SÉRIE'}</span>
-                <h3>{show.title}</h3>
-                <p>{show.meta || `Saison ${show.prochaine} • Épisode ${show.prochain}`}</p>
-                <div className="watchflow-progress"><i style={{ width: `${show.progress || 0}%` }} /></div>
-              </div>
-              {show.localId && <button className="watchflow-play" onClick={() => markAsSeen(show)} aria-label={`Marquer ${show.title} comme vu`}>▶</button>}
-            </motion.article>
-          ))}
-        </div>
+        {loading ? (
+          <div className="watchflow-empty">Chargement de ta bibliothèque…</div>
+        ) : watching.length ? (
+          <div className="watchflow-cards">
+            {watching.slice(0, 3).map((show, index) => (
+              <motion.article key={show.localId} className={`watchflow-card ${index === 0 ? 'featured' : ''}`} whileTap={{ scale: 0.99 }}>
+                <div className="watchflow-art" style={{ backgroundImage: `url(${show.art || ''})` }} />
+                <div className="watchflow-overlay" />
+                <div className="watchflow-copy">
+                  <span>{show.mediaType === 'movie' ? 'FILM' : 'SÉRIE'}</span>
+                  <h3>{show.title}</h3>
+                  <p>{show.mediaType === 'tv' ? `Saison ${show.prochaine} • Épisode ${show.prochain}` : `${show.progress}% vu`}</p>
+                  <div className="watchflow-progress"><i style={{ width: `${show.progress}%` }} /></div>
+                </div>
+                <button className="watchflow-play" onClick={() => markAsSeen(show)} aria-label={`Marquer ${show.title} comme vu`}>✓</button>
+              </motion.article>
+            ))}
+          </div>
+        ) : (
+          <div className="watchflow-empty">
+            <strong>Ta prochaine soirée commence ici.</strong>
+            <p>Ajoute une série ou un film pour voir ton suivi apparaître ici.</p>
+            <a className="watchflow-add" href="#/recherche">Chercher un titre</a>
+          </div>
+        )}
       </section>
 
       <section className="watchflow-stats">
@@ -89,7 +129,7 @@ export default function WatchFlowHome() {
         <div className="watchflow-panel">
           <div className="section-title-row compact"><div><p className="eyebrow">HISTORIQUE</p><h2>Vu récemment</h2></div></div>
           <div className="watchflow-history">
-            {recent.length ? recent.map((r) => <div className="watchflow-history-item" key={r.localId}><div className="watchflow-thumb" style={{ backgroundImage: `url(${poster(r.item?.posterPath, 'w185')})` }} /><div><strong>{r.item?.title || 'Titre'}</strong><span>{r.episode ? `S${r.season} E${r.episode}` : 'Film'} • {r.runtimeMin || 0} min</span></div></div>) : <p className="subtitle">Ton historique apparaîtra ici.</p>}
+            {recent.length ? recent.map((r) => <div className="watchflow-history-item" key={r.localId}><div className="watchflow-thumb" style={{ backgroundImage: `url(${poster(r.item?.posterPath, 'w185') || ''})` }} /><div><strong>{r.item?.title || 'Titre'}</strong><span>{r.episode ? `S${r.season} E${r.episode}` : 'Film'} • {r.runtimeMin || 0} min</span></div></div>) : <p className="subtitle">Ton historique apparaîtra ici.</p>}
           </div>
         </div>
       </section>
