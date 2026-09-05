@@ -25,14 +25,12 @@ function useRoute() {
 }
 
 const WELCOME_KEY = 'tracker_bienvenue_vue';
-const NO_ACCOUNT_KEY = 'tracker_sans_compte';
 const SEEDING_KEY = 'tracker_amorcage_passee';
 
 export default function App() {
   const route = useRoute();
   const [amorce, setAmorce] = useState(null);
   const [bienvenueVue, setBienvenueVue] = useState(() => !!localStorage.getItem(WELCOME_KEY));
-  const [sansCompte, setSansCompte] = useState(() => !!localStorage.getItem(NO_ACCOUNT_KEY));
   const [utilisateur, setUtilisateur] = useState(undefined);
 
   useEffect(() => {
@@ -44,13 +42,10 @@ export default function App() {
     if (u) synchroniser();
   }), []);
 
+  // Un accès à l'application sans compte n'est plus autorisé.
   if (!bienvenueVue) return <Bienvenue onFini={() => { localStorage.setItem(WELCOME_KEY, '1'); setBienvenueVue(true); }} />;
   if (utilisateur === undefined) return null;
-
-  const shouldOfferLogin = !!supabase && !utilisateur && !sansCompte;
-  if (shouldOfferLogin) {
-    return <AuthLanding onContinueLocal={() => { localStorage.setItem(NO_ACCOUNT_KEY, '1'); setSansCompte(true); }} />;
-  }
+  if (!utilisateur) return <AuthLanding />;
 
   if (amorce === null) return null;
   if (!amorce) return <Amorcage onFini={() => { localStorage.setItem(SEEDING_KEY, '1'); setAmorce(true); }} />;
@@ -100,7 +95,7 @@ function Header({ utilisateur }) {
           <button className="header-icon" type="button" aria-expanded={open} aria-label="Menu du compte" onClick={() => setOpen((v) => !v)}>⋯</button>
           {open && <div className="account-popover">
             <a href="#/reglages" onClick={() => setOpen(false)}>Réglages</a>
-            {utilisateur ? <button type="button" onClick={() => { setOpen(false); seDeconnecter(); }}>Se déconnecter</button> : <button type="button" onClick={() => { setOpen(false); connecterAvecGoogle(); }}>Se connecter</button>}
+            {utilisateur && <button type="button" onClick={async () => { setOpen(false); await seDeconnecter(); window.location.hash = '/'; window.location.reload(); }}>Se déconnecter</button>}
           </div>}
         </div>
       </div>
@@ -118,8 +113,8 @@ const Settings = ({ utilisateur }) => (
     <button type="button" className="primary-btn" onClick={async () => { await telechargerExport(); notifier('Export téléchargé'); }}>Exporter mes données</button>
     {supabase && <div className="settings-account">
       <p className="eyebrow">SYNCHRONISATION</p>
-      <p className="subtitle">{utilisateur ? `Connecté en tant que ${utilisateur.email}.` : "Pas de compte : suivi local uniquement."}</p>
-      {utilisateur ? <button type="button" className="secondary-btn" onClick={seDeconnecter}>Se déconnecter</button> : <button type="button" className="secondary-btn" onClick={connecterAvecGoogle}>Continuer avec Google</button>}
+      <p className="subtitle">Connecté en tant que {utilisateur.email}.</p>
+      <button type="button" className="secondary-btn" onClick={async () => { await seDeconnecter(); window.location.hash = '/'; window.location.reload(); }}>Se déconnecter</button>
     </div>}
   </section>
 );
