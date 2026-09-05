@@ -38,8 +38,8 @@ async function dejaVus() {
 // genre : on reconnaît plus vite un titre dans une catégorie qui a du sens pour lui.
 export async function grilleAmorcage(tailleParGenre = 10) {
   const [genresSeries, genresFilms] = await Promise.all([
-    Promise.all(GENRES_SERIES.map((g) => genreVersRangee('tv', g, tailleParGenre))),
-    Promise.all(GENRES_FILMS.map((g) => genreVersRangee('movie', g, tailleParGenre))),
+    genresVersRangees('tv', GENRES_SERIES, tailleParGenre),
+    genresVersRangees('movie', GENRES_FILMS, tailleParGenre),
   ]);
   return [
     { cle: 'tv', emoji: '📺', label: 'Séries', genres: genresSeries },
@@ -47,12 +47,22 @@ export async function grilleAmorcage(tailleParGenre = 10) {
   ];
 }
 
-async function genreVersRangee(type, { id, label }, taille) {
-  let titres = [];
-  try {
-    titres = melanger(await decouvrir(type, { genre: id })).slice(0, taille);
-  } catch { /* un genre indisponible ne bloque pas les autres rangées */ }
-  return { id, label, titres };
+// Un titre coche souvent plusieurs genres à la fois (une comédie d'action, par
+// exemple) : on le range dans la première rangée où il apparaît, jamais dans
+// les suivantes, pour ne pas le montrer deux fois sur le même écran.
+async function genresVersRangees(type, genresDef, taille) {
+  const dejaPlace = new Set();
+  const rangees = [];
+  for (const { id, label } of genresDef) {
+    let titres = [];
+    try {
+      const brut = await decouvrir(type, { genre: id });
+      titres = melanger(brut.filter((t) => !dejaPlace.has(t.tmdbId))).slice(0, taille);
+      titres.forEach((t) => dejaPlace.add(t.tmdbId));
+    } catch { /* un genre indisponible ne bloque pas les autres rangées */ }
+    rangees.push({ id, label, titres });
+  }
+  return rangees;
 }
 
 export async function propositions(taille = 20) {
