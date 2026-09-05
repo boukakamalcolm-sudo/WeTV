@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { calendrier, historiqueMois } from '../lib/calendrier';
+import { useEffect, useMemo, useState } from 'react';
+import { calendrier, historiqueMois, sortiesConnues, sortiesDuMois } from '../lib/calendrier';
 
 const JOURS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -9,9 +9,17 @@ export default function Calendrier() {
   const [donnees, setDonnees] = useState(null);
   const [date, setDate] = useState(() => { const d = new Date(); return { annee: d.getFullYear(), mois: d.getMonth() }; });
   const [parJour, setParJour] = useState(new Map());
+  const [sorties, setSorties] = useState(null);
   const [jourChoisi, setJourChoisi] = useState(null);
 
   useEffect(() => { calendrier().then(setDonnees); }, []);
+
+  // Chargées une seule fois pour toute la session, puis reclassées mois par
+  // mois côté client : pas de nouvel appel réseau à chaque changement de page.
+  useEffect(() => {
+    if (onglet !== 'historique' || sorties !== null) return;
+    sortiesConnues().then(setSorties);
+  }, [onglet, sorties]);
 
   useEffect(() => {
     if (onglet !== 'historique') return;
@@ -19,6 +27,8 @@ export default function Calendrier() {
     historiqueMois(date.annee, date.mois).then((m) => { if (!annule) { setParJour(m); setJourChoisi(null); } });
     return () => { annule = true; };
   }, [onglet, date]);
+
+  const sortiesJour = useMemo(() => sortiesDuMois(sorties || [], date.annee, date.mois), [sorties, date]);
 
   if (donnees === null) return <div className="ecran" aria-busy="true" />;
 
@@ -34,7 +44,7 @@ export default function Calendrier() {
 
       {onglet === 'avenir'
         ? <VueAVenir donnees={donnees} />
-        : <VueHistorique date={date} setDate={setDate} parJour={parJour} jourChoisi={jourChoisi} setJourChoisi={setJourChoisi} />}
+        : <VueHistorique date={date} setDate={setDate} parJour={parJour} sortiesJour={sortiesJour} chargeSorties={sorties === null} jourChoisi={jourChoisi} setJourChoisi={setJourChoisi} />}
     </section>
   );
 }
@@ -90,13 +100,14 @@ function ItemCalendrier({ e, passe }) {
   );
 }
 
-function VueHistorique({ date, setDate, parJour, jourChoisi, setJourChoisi }) {
+function VueHistorique({ date, setDate, parJour, sortiesJour, chargeSorties, jourChoisi, setJourChoisi }) {
   const premierJour = new Date(date.annee, date.mois, 1);
   const decalage = (premierJour.getDay() + 6) % 7; // lundi en première colonne
   const nbJours = new Date(date.annee, date.mois + 1, 0).getDate();
   const cases = [...Array(decalage).fill(null), ...Array.from({ length: nbJours }, (_, i) => i + 1)];
   const total = [...parJour.values()].reduce((s, l) => s + l.length, 0);
-  const detail = jourChoisi != null ? (parJour.get(jourChoisi) || []) : [];
+  const detailVu = jourChoisi != null ? (parJour.get(jourChoisi) || []) : [];
+  const detailSorti = jourChoisi != null ? (sortiesJour.get(jourChoisi) || []) : [];
 
   function changerMois(delta) {
     const d = new Date(date.annee, date.mois + delta, 1);
@@ -110,14 +121,26 @@ function VueHistorique({ date, setDate, parJour, jourChoisi, setJourChoisi }) {
         <strong>{MOIS[date.mois]} {date.annee}</strong>
         <button type="button" className="fleche" aria-label="Mois suivant" onClick={() => changerMois(1)}>›</button>
       </div>
-      <p className="secondaire calendrier-sous-titre">{total ? `${total} visionnage${total > 1 ? 's' : ''} ce mois-ci` : 'Rien de regardé ce mois-ci.'}</p>
+      <p className="secondaire calendrier-sous-titre">
+        {total ? `${total} visionnage${total > 1 ? 's' : ''} ce mois-ci` : 'Rien de regardé ce mois-ci.'}
+        {chargeSorties ? ' · sorties en cours de chargement…' : ''}
+      </p>
+      <p className="calendrier-legende">
+        <span><i className="calendrier-legende-vu" aria-hidden="true" /> regardé</span>
+        <span><i className="calendrier-legende-sorti" aria-hidden="true" /> sorti</span>
+      </p>
 
       <div className="calendrier-grille" role="grid" aria-label={`${MOIS[date.mois]} ${date.annee}`}>
         {JOURS.map((j, i) => <span className="calendrier-entete" key={i} aria-hidden="true">{j}</span>)}
         {cases.map((jour, i) => {
           if (jour === null) return <span key={`vide-${i}`} className="calendrier-case vide" aria-hidden="true" />;
-          const liste = parJour.get(jour) || [];
-          const intensite = Math.min(4, liste.length);
+          const vus = parJour.get(jour) || [];
+          const sortis = sortiesJour.get(jour) || [];
+          const intensite = Math.min(4, vus.length);
+          const libelle = [
+            vus.length ? `${vus.length} visionnage${vus.length > 1 ? 's' : ''}` : null,
+            sortis.length ? `${sortis.length} sortie${sortis.length > 1 ? 's' : ''}` : null,
+          ].filter(Boolean).join(', ');
           return (
             <button
               type="button"
@@ -125,10 +148,11 @@ function VueHistorique({ date, setDate, parJour, jourChoisi, setJourChoisi }) {
               className={`calendrier-case${intensite ? ` niveau-${intensite}` : ''}${jourChoisi === jour ? ' choisi' : ''}`}
               onClick={() => setJourChoisi(jourChoisi === jour ? null : jour)}
               aria-pressed={jourChoisi === jour}
-              aria-label={`${jour} ${MOIS[date.mois]}${liste.length ? `, ${liste.length} visionnage${liste.length > 1 ? 's' : ''}` : ''}`}
+              aria-label={`${jour} ${MOIS[date.mois]}${libelle ? `, ${libelle}` : ''}`}
             >
+              {sortis.length > 0 && <span className="pastille-sortie" aria-hidden="true" />}
               <b>{jour}</b>
-              {liste.length > 0 && <small>{liste.length}</small>}
+              {vus.length > 0 && <small>{vus.length}</small>}
             </button>
           );
         })}
@@ -137,9 +161,11 @@ function VueHistorique({ date, setDate, parJour, jourChoisi, setJourChoisi }) {
       {jourChoisi != null && (
         <div className="calendrier-jour-detail">
           <h2>{jourChoisi} {MOIS[date.mois]}</h2>
-          {detail.length ? (
+
+          <h3 className="calendrier-titre-detail">Regardé</h3>
+          {detailVu.length ? (
             <ul className="liste-calendrier">
-              {detail.map((e) => (
+              {detailVu.map((e) => (
                 <li className="item-calendrier" key={e.localId}>
                   <div className="datebox" aria-hidden="true"><b>▶</b></div>
                   <div className="texte">
@@ -152,6 +178,23 @@ function VueHistorique({ date, setDate, parJour, jourChoisi, setJourChoisi }) {
               ))}
             </ul>
           ) : <p className="secondaire">Rien de regardé ce jour-là.</p>}
+
+          <h3 className="calendrier-titre-detail">Sorti</h3>
+          {detailSorti.length ? (
+            <ul className="liste-calendrier">
+              {detailSorti.map((s) => (
+                <li className="item-calendrier" key={`${s.tmdbId}-${s.episode ?? 'film'}`}>
+                  <div className="datebox" aria-hidden="true"><b>✦</b></div>
+                  <div className="texte">
+                    <h2>{s.title}</h2>
+                    <p className="secondaire">
+                      {s.saison != null ? `S${s.saison} E${s.episode}${s.titreEpisode ? ` · ${s.titreEpisode}` : ''}` : (s.mediaType === 'tv' ? 'Série' : 'Film')}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="secondaire">{chargeSorties ? 'Chargement…' : 'Rien de sorti ce jour-là parmi tes œuvres suivies.'}</p>}
         </div>
       )}
     </section>
