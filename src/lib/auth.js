@@ -1,9 +1,5 @@
-// Connexion facultative : elle sert uniquement à retrouver ses propres
-// données sur plusieurs appareils, jamais à un usage partagé ou social.
 import { supabase } from './supabase';
 
-// callback(undefined) : état encore inconnu (le temps de vérifier une session existante).
-// callback(null) : confirmé déconnecté. callback(user) : confirmé connecté.
 export function onAuthChange(callback) {
   if (!supabase) {
     callback(null);
@@ -15,7 +11,7 @@ export function onAuthChange(callback) {
     if (actif) callback(data.session?.user ?? null);
   });
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_evenement, session) => {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     if (actif) callback(session?.user ?? null);
   });
 
@@ -27,13 +23,34 @@ export function onAuthChange(callback) {
 
 export async function connecterAvecGoogle() {
   if (!supabase) return;
-  await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: location.origin },
   });
+  if (error) throw error;
 }
 
-export async function seDeconnecter() {
+export async function seConnecterAvecEmail(email, password) {
   if (!supabase) return;
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function creerCompteAvecEmail(email, password) {
+  if (!supabase) return { requiresConfirmation: false };
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: location.origin },
+  });
+  if (error) throw error;
+  return { requiresConfirmation: !data.session };
+}
+
+export async function resetMotDePasse(email) {
+  if (!supabase) return;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${location.origin}/#/reset-password`,
+  });
+  if (error) throw error;
 }
