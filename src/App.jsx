@@ -5,7 +5,6 @@ import Bibliotheque from './components/Bibliotheque';
 import Calendrier from './components/Calendrier';
 import Statistiques from './components/Statistiques';
 import Fiche from './components/FicheV2';
-import Bienvenue from './components/Bienvenue';
 import AuthLanding from './components/AuthLanding';
 import { Amorcage, Tri } from './components/Decouverte';
 import { telechargerExport, preferences, synchroniser, telecharger } from './lib/store';
@@ -25,13 +24,11 @@ function useRoute() {
   return route;
 }
 
-const WELCOME_KEY = 'tracker_bienvenue_vue';
 const SEEDING_KEY = 'tracker_amorcage_passee';
 
 export default function App() {
   const route = useRoute();
   const [amorce, setAmorce] = useState(null);
-  const [bienvenueVue, setBienvenueVue] = useState(() => !!localStorage.getItem(WELCOME_KEY));
   const [utilisateur, setUtilisateur] = useState(undefined);
 
   useEffect(() => {
@@ -54,7 +51,6 @@ export default function App() {
     }
   }), []);
 
-  if (!bienvenueVue) return <Bienvenue onFini={() => { localStorage.setItem(WELCOME_KEY, '1'); setBienvenueVue(true); }} />;
   if (utilisateur === undefined) return null;
   if (!utilisateur) return <AuthLanding />;
 
