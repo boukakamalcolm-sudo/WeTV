@@ -58,11 +58,9 @@ export default function Bibliotheque() {
   return (
     <section className="ecran bibliotheque-screen">
       <div className="library-head">
-        <div>
-          <p className="eyebrow">TA COLLECTION</p>
-          <h1>📚 Ma bibliothèque</h1>
-          <p className="subtitle">{items.length} œuvre{items.length > 1 ? 's' : ''} suivie{items.length > 1 ? 's' : ''}</p>
-        </div>
+        <p className="eyebrow">TA COLLECTION</p>
+        <h1>📚 Ma bibliothèque</h1>
+        <p className="subtitle">{items.length} œuvre{items.length > 1 ? 's' : ''} suivie{items.length > 1 ? 's' : ''}</p>
         <div className="raccourcis">
           <a className="action" href="#/recherche"><span aria-hidden="true">⌕</span> Chercher</a>
           <a className="action" href="#/decouvrir"><span aria-hidden="true">✦</span> Découvrir</a>
