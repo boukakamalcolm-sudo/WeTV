@@ -6,7 +6,7 @@ import Calendrier from './components/Calendrier';
 import Statistiques from './components/Statistiques';
 import Fiche from './components/Fiche';
 import Bienvenue from './components/Bienvenue';
-import Connexion from './components/Connexion';
+import AuthLanding from './components/AuthLanding';
 import { Amorcage, Tri } from './components/Decouverte';
 import { telechargerExport, preferences, synchroniser } from './lib/store';
 import { onAuthChange, connecterAvecGoogle, seDeconnecter } from './lib/auth';
@@ -49,7 +49,7 @@ export default function App() {
 
   const shouldOfferLogin = !!supabase && !utilisateur && !sansCompte;
   if (shouldOfferLogin) {
-    return <Connexion onSansCompte={() => { localStorage.setItem(NO_ACCOUNT_KEY, '1'); setSansCompte(true); }} />;
+    return <AuthLanding onContinueLocal={() => { localStorage.setItem(NO_ACCOUNT_KEY, '1'); setSansCompte(true); }} />;
   }
 
   if (amorce === null) return null;
@@ -106,18 +106,6 @@ function Header({ utilisateur }) {
       </div>
     </header>
   );
-}
-
-function Toast() {
-  const [message, setMessage] = useState(null);
-  const timerRef = useRef(null);
-  useEffect(() => {
-    const show = (e) => { clearTimeout(timerRef.current); setMessage(e.detail); timerRef.current = setTimeout(() => setMessage(null), 2200); };
-    window.addEventListener('tracker:toast', show);
-    return () => { window.removeEventListener('tracker:toast', show); clearTimeout(timerRef.current); };
-  }, []);
-  if (!message) return null;
-  return <div className="toast" role="status">{message}</div>;
 }
 
 const Tab = ({ href, active, label, icon }) => <a href={href} className="bottom-tab" aria-current={active ? 'page' : undefined}><span>{icon}</span><small>{label}</small></a>;
