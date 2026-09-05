@@ -50,7 +50,7 @@ export const entries = () => all('entries');
 export const preferences = () => all('preferences');
 export const itemParTmdb = async (tmdbId, mediaType) => (await items()).find((i) => i.tmdbId === tmdbId && i.mediaType === mediaType) ?? null;
 export const entriesDe = async (itemId) => (await entries()).filter((e) => e.itemId === itemId);
-export async function ajouterItem(titre) { const existant = await itemParTmdb(titre.tmdbId, titre.mediaType); if (existant) return existant.localId; return ecrire('items', { ...titre, status: 'watching', addedAt: Date.now() }); }
+export async function ajouterItem(titre, status = 'watchlist') { const existant = await itemParTmdb(titre.tmdbId, titre.mediaType); if (existant) { if (existant.status !== status) await majStatut(existant.localId, status); return existant.localId; } return ecrire('items', { ...titre, status, addedAt: Date.now() }); }
 export async function majStatut(localId, status) { const item=(await items()).find(i=>i.localId===localId); if(!item)return; return ecrire('items',{...item,status,updatedAt:Date.now()}); }
 export async function cocher({ itemId, season, episode, runtimeMin, airDate, platform }) { return ecrire('entries',{itemId,season,episode,runtimeMin,airDate,platform,watchedAt:Date.now()}); }
 export async function decocher(localId) { const existante=(await entries()).find(e=>e.localId===localId); await tx('entries','readwrite',s=>s.delete(localId)); await tx('outbox','readwrite',s=>s.put({table:'entries',suppression:localId,remoteId:existante?.remoteId??null,at:Date.now()})); planifierSync(); }
