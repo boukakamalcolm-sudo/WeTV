@@ -73,3 +73,44 @@ export async function historiqueMois(annee, mois) {
   for (const liste of parJour.values()) liste.sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt));
   return parJour;
 }
+
+// Toutes les dates de sortie connues des œuvres suivies, peu importe le
+// statut : chargé une fois pour toute la session, puis filtré localement
+// mois par mois (sortiesDuMois) — pas de nouvel appel réseau à chaque page.
+export async function sortiesConnues() {
+  const is = await items();
+  const resultats = [];
+  for (const it of is) {
+    try {
+      if (it.mediaType === 'movie') {
+        const d = await details('movie', it.tmdbId);
+        if (d.release_date) resultats.push({ tmdbId: it.tmdbId, mediaType: 'movie', title: it.title, date: d.release_date });
+        continue;
+      }
+      const d = await details('tv', it.tmdbId);
+      const saisons = (d.seasons || []).filter((s) => s.season_number > 0);
+      for (const s of saisons) {
+        const sd = await season(it.tmdbId, s.season_number);
+        for (const ep of sd.episodes || []) {
+          if (ep.air_date) resultats.push({ tmdbId: it.tmdbId, mediaType: 'tv', title: it.title, saison: s.season_number, episode: ep.episode_number, titreEpisode: ep.name, date: ep.air_date });
+        }
+      }
+    } catch { /* un titre sans données TMDB ne bloque pas les autres */ }
+  }
+  return resultats;
+}
+
+// Filtre local (aucun appel réseau) des sorties connues sur un mois donné,
+// groupées par jour. Comparaison sur la chaîne AAAA-MM-JJ pour éviter tout
+// décalage de fuseau horaire lié à un parsing en Date.
+export function sortiesDuMois(sorties, annee, mois) {
+  const prefixe = `${annee}-${String(mois + 1).padStart(2, '0')}-`;
+  const parJour = new Map();
+  for (const s of sorties) {
+    if (!s.date.startsWith(prefixe)) continue;
+    const jour = Number(s.date.slice(8, 10));
+    if (!parJour.has(jour)) parJour.set(jour, []);
+    parJour.get(jour).push(s);
+  }
+  return parJour;
+}
