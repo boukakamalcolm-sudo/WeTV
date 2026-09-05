@@ -10,8 +10,24 @@ import { jugerTitre, ajouterItem } from '../lib/store';
 export function Amorcage({ onFini }) {
   const [categories, setCategories] = useState([]);
   const [choisis, setChoisis] = useState(new Set());
+  const [type, setType] = useState('tv');
+  const [genreId, setGenreId] = useState(null);
 
-  useEffect(() => { grilleAmorcage().then(setCategories); }, []);
+  useEffect(() => {
+    grilleAmorcage().then((cats) => {
+      setCategories(cats);
+      setGenreId(cats.find((c) => c.cle === 'tv')?.genres[0]?.id ?? null);
+    });
+  }, []);
+
+  const categorie = categories.find((c) => c.cle === type);
+  const genre = categorie?.genres.find((g) => g.id === genreId);
+
+  // Changer de type change aussi les genres disponibles : on repart du premier.
+  const changerType = (t) => {
+    setType(t);
+    setGenreId(categories.find((c) => c.cle === t)?.genres[0]?.id ?? null);
+  };
 
   const basculer = (t) => {
     const cle = `${t.mediaType}:${t.tmdbId}`;
@@ -52,40 +68,60 @@ export function Amorcage({ onFini }) {
         peux aussi passer cette étape et revenir choisir plus tard.
       </p>
 
-      {categories.map((cat) => (
-        <details className="grande-categorie" key={cat.cle} open>
-          <summary className="categorie-titre">
+      {/* Un seul type à la fois : pas de rangées empilées, la hauteur d'écran ne bouge pas. */}
+      <div className="onglets-type" role="group" aria-label="Type de titre">
+        {categories.map((cat) => (
+          <button
+            key={cat.cle}
+            type="button"
+            className={type === cat.cle ? 'action primaire' : 'action'}
+            aria-pressed={type === cat.cle}
+            onClick={() => changerType(cat.cle)}
+          >
             <span aria-hidden="true">{cat.emoji}</span> {cat.label}
-            <span className="chevron" aria-hidden="true">▸</span>
-          </summary>
-          {cat.genres.map((g) => (
-            <div className="rangee" key={g.id}>
-              <h3 className="rangee-titre">{g.label}</h3>
-              <ul className="defilement">
-                {g.titres.map((t) => {
-                  const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
-                  return (
-                    <li key={`${t.mediaType}-${t.tmdbId}`}>
-                      <button
-                        type="button"
-                        className={actif ? 'vignette choisie' : 'vignette'}
-                        aria-pressed={actif}
-                        aria-label={t.title}
-                        onClick={() => basculer(t)}
-                      >
-                        <img src={poster(t.posterPath, 'w342')} alt="" loading="lazy" />
-                        {/* L'état choisi n'est pas porté par la seule couleur. */}
-                        {actif && <span className="marque" aria-hidden="true">✅</span>}
-                      </button>
-                      <p className="vignette-titre">{t.title}</p>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+          </button>
+        ))}
+      </div>
+
+      {categorie && (
+        <div className="puces-genre" role="group" aria-label="Genre">
+          {categorie.genres.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className={genreId === g.id ? 'puce active' : 'puce'}
+              aria-pressed={genreId === g.id}
+              onClick={() => setGenreId(g.id)}
+            >
+              {g.label}
+            </button>
           ))}
-        </details>
-      ))}
+        </div>
+      )}
+
+      {genre && (
+        <ul className="defilement">
+          {genre.titres.map((t) => {
+            const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
+            return (
+              <li key={`${t.mediaType}-${t.tmdbId}`}>
+                <button
+                  type="button"
+                  className={actif ? 'vignette choisie' : 'vignette'}
+                  aria-pressed={actif}
+                  aria-label={t.title}
+                  onClick={() => basculer(t)}
+                >
+                  <img src={poster(t.posterPath, 'w342')} alt="" loading="lazy" />
+                  {/* L'état choisi n'est pas porté par la seule couleur. */}
+                  {actif && <span className="marque" aria-hidden="true">✅</span>}
+                </button>
+                <p className="vignette-titre">{t.title}</p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div className="pied fixe">
         <button type="button" className="action primaire" onClick={valider} disabled={!choisis.size}>
