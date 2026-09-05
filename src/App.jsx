@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import ASuivre from './components/ASuivre';
 import Recherche from './components/Recherche';
+import Bibliotheque from './components/Bibliotheque';
+import Calendrier from './components/Calendrier';
+import Statistiques from './components/Statistiques';
 import Fiche from './components/Fiche';
 import Bienvenue from './components/Bienvenue';
 import Connexion from './components/Connexion';
@@ -8,6 +11,7 @@ import { Amorcage, Tri } from './components/Decouverte';
 import { telechargerExport, preferences, synchroniser } from './lib/store';
 import { onAuthChange, connecterAvecGoogle, seDeconnecter } from './lib/auth';
 import { supabase } from './lib/supabase';
+import { notifier } from './lib/toast';
 import './styles.css';
 
 // Routage minimal sur le fragment d'URL. Une dépendance de moins,
@@ -84,21 +88,26 @@ export default function App() {
   return (
     <div className="app">
       <Entete utilisateur={utilisateur} />
+      <Toast />
 
       <main>
         {route === '/' && <ASuivre />}
+        {route === '/bibliotheque' && <Bibliotheque />}
+        {route === '/calendrier' && <Calendrier />}
+        {route === '/stats' && <Statistiques />}
         {route === '/recherche' && <Recherche onAjout={(t) => (location.hash = `/titre/${t.mediaType}/${t.tmdbId}`)} />}
         {route === '/decouvrir' && <Tri />}
         {route === '/reglages' && <Reglages utilisateur={utilisateur} />}
         {fiche && <Fiche mediaType={fiche[1]} tmdbId={Number(fiche[2])} />}
       </main>
 
-      {/* Navigation en bas : à portée du pouce, quatre sections, pas davantage. */}
+      {/* Navigation en bas : à portée du pouce, quatre sections, pas davantage.
+          Chercher et Découvrir vivent désormais dans l'en-tête et Ma bibliothèque. */}
       <nav className="barre" aria-label="Navigation principale">
-        <Onglet href="#/" actif={route === '/'} libelle="À suivre" icone="▶" />
-        <Onglet href="#/recherche" actif={route === '/recherche'} libelle="Chercher" icone="⌕" />
-        <Onglet href="#/decouvrir" actif={route === '/decouvrir'} libelle="Découvrir" icone="✦" />
-        <Onglet href="#/reglages" actif={route === '/reglages'} libelle="Réglages" icone="⚙" />
+        <Onglet href="#/" actif={route === '/'} libelle="Accueil" icone="🏠" />
+        <Onglet href="#/bibliotheque" actif={route === '/bibliotheque'} libelle="Bibliothèque" icone="📚" />
+        <Onglet href="#/calendrier" actif={route === '/calendrier'} libelle="Calendrier" icone="📅" />
+        <Onglet href="#/stats" actif={route === '/stats'} libelle="Statistiques" icone="📊" />
       </nav>
     </div>
   );
@@ -126,39 +135,68 @@ function Entete({ utilisateur }) {
     <header className="entete-app">
       <span className="logo">Tracker</span>
 
-      <div className="menu-compte" ref={menuRef}>
-        <button
-          type="button"
-          className="menu-bouton"
-          aria-haspopup="menu"
-          aria-expanded={ouvert}
-          aria-label="Menu du compte"
-          onClick={() => setOuvert((o) => !o)}
-        >
-          <span aria-hidden="true">⋯</span>
-        </button>
+      <div className="entete-actions">
+        <a className="menu-bouton" href="#/recherche" aria-label="Chercher un titre">
+          <span aria-hidden="true">⌕</span>
+        </a>
 
-        {ouvert && (
-          <ul className="menu-liste" role="menu">
-            <li role="none">
-              <a role="menuitem" href="#/reglages" onClick={() => setOuvert(false)}>Réglages</a>
-            </li>
-            <li role="none">
-              {utilisateur ? (
-                <button role="menuitem" type="button" onClick={() => { setOuvert(false); seDeconnecter(); }}>
-                  Se déconnecter
-                </button>
-              ) : (
-                <button role="menuitem" type="button" onClick={() => { setOuvert(false); connecterAvecGoogle(); }}>
-                  Se connecter
-                </button>
-              )}
-            </li>
-          </ul>
-        )}
+        <div className="menu-compte" ref={menuRef}>
+          <button
+            type="button"
+            className="menu-bouton"
+            aria-haspopup="menu"
+            aria-expanded={ouvert}
+            aria-label="Menu du compte"
+            onClick={() => setOuvert((o) => !o)}
+          >
+            <span aria-hidden="true">⋯</span>
+          </button>
+
+          {ouvert && (
+            <ul className="menu-liste" role="menu">
+              <li role="none">
+                <a role="menuitem" href="#/reglages" onClick={() => setOuvert(false)}>Réglages</a>
+              </li>
+              <li role="none">
+                {utilisateur ? (
+                  <button role="menuitem" type="button" onClick={() => { setOuvert(false); seDeconnecter(); }}>
+                    Se déconnecter
+                  </button>
+                ) : (
+                  <button role="menuitem" type="button" onClick={() => { setOuvert(false); connecterAvecGoogle(); }}>
+                    Se connecter
+                  </button>
+                )}
+              </li>
+            </ul>
+          )}
+        </div>
       </div>
     </header>
   );
+}
+
+// Confirmation courte après un geste (ajout, export...), sans bloquer l'écran.
+// Un événement global plutôt qu'un contexte : rien à partager, juste un message.
+function Toast() {
+  const [message, setMessage] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const afficher = (e) => {
+      clearTimeout(timerRef.current);
+      setMessage(e.detail);
+      timerRef.current = setTimeout(() => setMessage(null), 2200);
+    };
+    window.addEventListener('tracker:toast', afficher);
+    return () => {
+      window.removeEventListener('tracker:toast', afficher);
+      clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  if (!message) return null;
+  return <div className="toast" role="status">{message}</div>;
 }
 
 const Onglet = ({ href, actif, libelle, icone }) => (
@@ -175,7 +213,11 @@ const Reglages = ({ utilisateur }) => (
       Tes données t'appartiennent. L'export contient l'intégralité de ton historique,
       dans un format lisible sans cette application.
     </p>
-    <button type="button" className="action primaire" onClick={telechargerExport}>
+    <button
+      type="button"
+      className="action primaire"
+      onClick={async () => { await telechargerExport(); notifier('Export téléchargé'); }}
+    >
       Exporter mes données
     </button>
 

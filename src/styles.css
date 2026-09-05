@@ -34,23 +34,30 @@ h2 { font-size: 1rem; font-weight: 560; margin: 0; }
 
 .pile { padding: calc(var(--pas) * 2); display: grid; gap: var(--pas); }
 
+/* Carte "hero" pleine largeur : affiche en fond, dégradé pour la lisibilité
+   du texte, comme un écran d'accueil de service de streaming. */
 .carte {
-  display: grid;
-  grid-template-columns: 64px 1fr auto;
-  gap: calc(var(--pas) * 1.5);
-  align-items: center;
-  padding: var(--pas);
-  background: var(--surface);
+  position: relative;
   border-radius: var(--rayon);
+  overflow: hidden;
+  background: var(--surface);
   touch-action: pan-y;
 }
 
-.carte img { border-radius: 6px; display: block; object-fit: cover; }
-.carte .texte p { margin: 2px 0 0; color: var(--secondaire); font-size: 0.875rem; }
+.carte-lien { display: block; position: relative; color: inherit; text-decoration: none; }
+.carte-lien img { width: 100%; height: 184px; display: block; object-fit: cover; }
 
-/* display: contents laisse les enfants du lien participer directement à la
-   grille du parent, sans ajouter de niveau ni casser la mise en page. */
-.carte-lien, .ligne-lien { display: contents; color: inherit; text-decoration: none; }
+.carte-voile {
+  position: absolute; inset: 0;
+  background: linear-gradient(0deg, rgba(16 18 21 / 0.94) 15%, rgba(16 18 21 / 0.4) 55%, transparent 85%);
+}
+
+.carte-texte { position: absolute; left: 0; right: 0; bottom: 0; padding: calc(var(--pas) * 1.5); }
+.carte-texte .tag { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--secondaire); font-weight: 700; }
+.carte-texte h2 { margin: 4px 0 2px; font-size: 1.0625rem; }
+.carte-texte p { margin: 0; color: var(--secondaire); font-size: 0.8125rem; }
+
+.ligne-lien { display: contents; color: inherit; text-decoration: none; }
 
 .valider {
   min-width: var(--tactile);
@@ -68,12 +75,21 @@ h2 { font-size: 1rem; font-weight: 560; margin: 0; }
   cursor: pointer;
 }
 
+/* Sur la carte hero, le bouton flotte sur l'affiche : rond, plein, bien visible
+   au-dessus du dégradé plutôt qu'aligné dans une rangée de texte. */
+.carte > .valider {
+  position: absolute; right: var(--pas); bottom: var(--pas); z-index: 2;
+  border-radius: 50%; border: 0;
+  background: var(--texte); color: var(--fond);
+}
+.carte > .valider .libelle { color: var(--fond); opacity: 0.72; }
+
 /* L'état vu ne passe jamais par la seule couleur : coche et libellé l'accompagnent. */
 .valider[aria-pressed='true'] { border-color: var(--vu); color: var(--vu); }
 .valider .libelle { font-size: 0.6875rem; color: var(--secondaire); }
 .valider:focus-visible { outline: 2px solid var(--texte); outline-offset: 2px; }
 
-.fantome { height: 112px; background: var(--surface); opacity: 0.5; }
+.fantome { height: 184px; background: var(--surface); opacity: 0.5; }
 
 .vide { padding: calc(var(--pas) * 4) calc(var(--pas) * 2); display: grid; gap: var(--pas); justify-items: start; }
 .vide p { color: var(--secondaire); margin: 0; max-width: 40ch; }
@@ -100,6 +116,7 @@ h2 { font-size: 1rem; font-weight: 560; margin: 0; }
   border-bottom: 1px solid var(--trait);
 }
 .entete-app .logo { font-weight: 700; font-size: 1.0625rem; }
+.entete-actions { display: flex; align-items: center; gap: var(--pas); }
 
 .menu-compte { position: relative; }
 .menu-bouton {
@@ -276,6 +293,51 @@ textarea { padding: var(--pas); min-height: 96px; }
 .carte-tri img { width: 100%; display: block; }
 .carte-tri .legende { padding: calc(var(--pas) * 1.5); }
 .compte { text-align: center; }
+
+.badge {
+  display: inline-block; margin-left: 6px; vertical-align: middle;
+  font-size: 0.6875rem; font-weight: 620;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--trait); color: var(--secondaire);
+}
+
+/* --- Bibliothèque --- */
+
+.raccourcis { display: flex; gap: var(--pas); flex-wrap: wrap; }
+.raccourcis .action { flex: 1; }
+
+/* --- Calendrier --- */
+
+.liste-calendrier { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pas); }
+.item-calendrier {
+  display: grid; grid-template-columns: 40px 1fr auto; gap: var(--pas); align-items: center;
+  padding: var(--pas); background: var(--surface); border-radius: var(--rayon);
+}
+.datebox {
+  text-align: center; padding: 6px 3px; border-radius: 8px; background: var(--trait);
+}
+.datebox b { display: block; font-size: 0.875rem; }
+.datebox span { font-size: 0.625rem; color: var(--secondaire); text-transform: uppercase; }
+
+/* --- Statistiques --- */
+
+.grille-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pas); }
+.stat-carte {
+  display: grid; gap: 4px; padding: calc(var(--pas) * 1.5);
+  background: var(--surface); border-radius: var(--rayon);
+}
+.stat-carte .secondaire { font-size: 0.75rem; }
+.stat-carte strong { font-size: 1.375rem; }
+
+.graphique { display: flex; align-items: flex-end; gap: var(--pas); height: 140px; padding-top: var(--pas); }
+.barre-jour { flex: 1; display: grid; gap: 6px; justify-items: center; align-content: end; height: 100%; }
+/* Nommée à part de .barre (la nav du bas) : même préfixe, deux éléments sans
+   rapport — les confondre écrasait le fond de la nav avec celui du graphique. */
+.barre-graphique {
+  width: 100%; height: var(--h); min-height: 4px;
+  background: var(--vu); border-radius: 4px 4px 2px 2px;
+}
+.barre-jour small { color: var(--secondaire); font-size: 0.6875rem; }
 
 /* --- Feuille modale --- */
 
