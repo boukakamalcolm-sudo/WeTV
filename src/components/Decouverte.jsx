@@ -53,10 +53,11 @@ export function Amorcage({ onFini }) {
       </p>
 
       {categories.map((cat) => (
-        <section className="grande-categorie" key={cat.cle}>
-          <h2 className="categorie-titre">
+        <details className="grande-categorie" key={cat.cle} open>
+          <summary className="categorie-titre">
             <span aria-hidden="true">{cat.emoji}</span> {cat.label}
-          </h2>
+            <span className="chevron" aria-hidden="true">▸</span>
+          </summary>
           {cat.genres.map((g) => (
             <div className="rangee" key={g.id}>
               <h3 className="rangee-titre">{g.label}</h3>
@@ -69,19 +70,21 @@ export function Amorcage({ onFini }) {
                         type="button"
                         className={actif ? 'vignette choisie' : 'vignette'}
                         aria-pressed={actif}
+                        aria-label={t.title}
                         onClick={() => basculer(t)}
                       >
-                        <img src={poster(t.posterPath)} alt={t.title} loading="lazy" />
+                        <img src={poster(t.posterPath, 'w342')} alt="" loading="lazy" />
                         {/* L'état choisi n'est pas porté par la seule couleur. */}
                         {actif && <span className="marque" aria-hidden="true">✅</span>}
                       </button>
+                      <p className="vignette-titre">{t.title}</p>
                     </li>
                   );
                 })}
               </ul>
             </div>
           ))}
-        </section>
+        </details>
       ))}
 
       <div className="pied fixe">

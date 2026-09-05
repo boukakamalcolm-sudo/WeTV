@@ -161,10 +161,20 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Découverte --- */
 
-/* Deux grandes catégories (Séries, Films), chacune détaillée en rangées de
-   genre défilant horizontalement : plus facile à parcourir qu'un ensemble mélangé. */
-.grande-categorie { display: grid; gap: calc(var(--pas) * 1.5); margin-top: calc(var(--pas) * 2); }
-.categorie-titre { display: flex; align-items: center; gap: 6px; margin: 0; }
+/* Deux grandes catégories (Séries, Films), en accordéon : chacune repliable,
+   détaillée en rangées de genre défilant horizontalement une fois ouverte. */
+.grande-categorie { margin-top: calc(var(--pas) * 2); }
+.grande-categorie > .rangee { margin-top: calc(var(--pas) * 1.5); }
+
+.categorie-titre {
+  display: flex; align-items: center; gap: 6px;
+  min-height: var(--tactile); cursor: pointer;
+  font-size: 1.25rem; font-weight: 620;
+  list-style: none;                      /* on dessine notre propre chevron */
+}
+.categorie-titre::-webkit-details-marker { display: none; }
+.categorie-titre .chevron { margin-left: auto; color: var(--secondaire); transition: transform 0.15s ease; }
+.grande-categorie[open] .categorie-titre .chevron { transform: rotate(90deg); }
 
 .rangee { display: grid; gap: 6px; }
 .rangee-titre { margin: 0; font-size: 0.875rem; font-weight: 560; color: var(--secondaire); }
@@ -175,19 +185,26 @@ textarea { padding: var(--pas); min-height: 96px; }
   overflow-x: auto; scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 }
-.defilement li { flex: 0 0 auto; scroll-snap-align: start; width: 104px; }
+/* Assez grandes pour qu'on reconnaisse une affiche sans plisser les yeux ;
+   la largeur fixe est ce qui rend le défilement horizontal évident. */
+.defilement li { flex: 0 0 auto; scroll-snap-align: start; width: 148px; }
 
 .vignette { padding: 0; width: 100%; border: 2px solid transparent; border-radius: var(--rayon); background: none; position: relative; cursor: pointer; }
-.vignette img { width: 100%; display: block; border-radius: calc(var(--rayon) - 2px); transition: filter 0.15s ease; }
+.vignette img { width: 100%; display: block; aspect-ratio: 2 / 3; object-fit: cover; border-radius: calc(var(--rayon) - 2px); transition: filter 0.15s ease; }
 .vignette.choisie { border-color: var(--texte); }
 /* La photo s'assombrit et la coche vient se centrer dessus : l'état choisi
    se voit d'un coup d'oeil, jamais par la seule bordure. */
 .vignette.choisie img { filter: brightness(0.4); }
 .marque {
   position: absolute; inset: 0; margin: auto;
-  width: 40px; height: 40px;
+  width: 48px; height: 48px;
   display: grid; place-items: center;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
+}
+/* Le nom du titre, sous l'affiche : jamais seulement suggéré par l'image. */
+.vignette-titre {
+  margin: 6px 0 0; font-size: 0.8125rem; color: var(--texte);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .carte-tri { background: var(--surface); border-radius: var(--rayon); overflow: hidden; touch-action: pan-y; }
