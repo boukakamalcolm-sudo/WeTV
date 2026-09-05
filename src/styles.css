@@ -122,7 +122,11 @@
 .episode-info{min-width:0;display:flex;flex-direction:column;gap:2px}
 .episode-info strong{font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .episode-info small{font-size:10px;color:var(--muted)}
-.film-toggle{justify-content:flex-start}
+.film-action-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;margin-top:2px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-weight:800;letter-spacing:-.005em}
+.film-action-btn:active{background:rgba(255,255,255,.07)}
+.film-action-btn.watched{background:rgba(84,214,155,.12);border-color:rgba(84,214,155,.35);color:#8fe6bc}
+.film-action-check{flex:none;width:26px;height:26px;border:2px solid var(--border);border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;color:#54d69b}
+.film-action-btn.watched .film-action-check{border-color:#54d69b;background:rgba(84,214,155,.22)}
 @media(min-width:600px){.tri-pile{min-height:420px}.carte-tri{width:340px}}
 
 /* Calendrier : uniquement les sorties (passées et à venir) des œuvres
