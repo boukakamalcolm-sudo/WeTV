@@ -1,9 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { sortiesConnues } from '../lib/calendrier';
 import { entries as entriesStore, cocher, majStatut } from '../lib/store';
-import { grouperParDate, paginer } from '../lib/pagination';
-import PageTabs from './PageTabs';
+import { grouperParDate } from '../lib/pagination';
 import TitleModal, { useTitleModal } from './TitleModal';
+
+const versISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function lundiDe(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // lundi = 0
+  return d;
+}
+
+function libelleSemaine(debut) {
+  const fin = new Date(debut);
+  fin.setDate(fin.getDate() + 6);
+  const memeMois = debut.getMonth() === fin.getMonth();
+  const jourDebut = debut.toLocaleDateString('fr-FR', { day: 'numeric', month: memeMois ? undefined : 'short' });
+  const jourFin = fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${jourDebut} – ${jourFin}`;
+}
 
 function libelleDate(iso) {
   const [y, m, j] = iso.split('-').map(Number);
@@ -26,7 +43,7 @@ const cleEpisode = (s) => `${s.localId}-${s.saison ?? 'f'}-${s.episode ?? ''}`;
 export default function Calendrier() {
   const [sorties, setSorties] = useState(null);
   const [vus, setVus] = useState(new Set());
-  const [page, setPage] = useState(0);
+  const [debutSemaine, setDebutSemaine] = useState(() => lundiDe(new Date()));
   const { selected, open, close } = useTitleModal();
 
   async function charger() {
@@ -44,20 +61,23 @@ export default function Calendrier() {
 
   const groupes = useMemo(() => {
     if (!sorties) return [];
-    const tries = [...sorties].sort((a, b) => a.date.localeCompare(b.date));
-    return grouperParDate(tries, (s) => s.date);
-  }, [sorties]);
+    const finSemaine = new Date(debutSemaine);
+    finSemaine.setDate(finSemaine.getDate() + 7);
+    const debutStr = versISO(debutSemaine);
+    const finStr = versISO(finSemaine);
+    const dansLaSemaine = sorties
+      .filter((s) => s.date >= debutStr && s.date < finStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return grouperParDate(dansLaSemaine, (s) => s.date);
+  }, [sorties, debutSemaine]);
 
-  const pages = useMemo(() => paginer(groupes, 20), [groupes]);
-
-  // Ouvre par défaut sur la page qui contient aujourd'hui, ou la plus proche.
-  useEffect(() => {
-    if (!pages.length) return;
-    const aujourdHui = new Date().toISOString().slice(0, 10);
-    const idx = pages.findIndex((p) => p.at(-1).date >= aujourdHui);
-    setPage(idx === -1 ? pages.length - 1 : idx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorties]);
+  function changerSemaine(delta) {
+    setDebutSemaine((d) => {
+      const n = new Date(d);
+      n.setDate(n.getDate() + delta * 7);
+      return n;
+    });
+  }
 
   async function marquerVu(s) {
     if (s.saison != null) {
@@ -75,47 +95,51 @@ export default function Calendrier() {
     <section className="ecran calendrier-screen">
       <p className="eyebrow">TON RYTHME</p>
       <h1>📅 Calendrier</h1>
-      <p className="subtitle calendrier-sous-titre">Les sorties de tes séries et films suivis, passées et à venir.</p>
+      <p className="subtitle calendrier-sous-titre">Les sorties de tes séries et films suivis, semaine par semaine.</p>
+
+      <button type="button" className="semaine-nav" onClick={() => changerSemaine(-1)}>
+        <span aria-hidden="true">‹</span> Semaine précédente
+      </button>
+      <p className="semaine-label">{libelleSemaine(debutSemaine)}</p>
 
       {!groupes.length ? (
-        <p className="secondaire">Aucune sortie connue parmi tes séries et films suivis.</p>
-      ) : (
-        <>
-          <PageTabs total={pages.length} page={page} onChange={setPage} />
-          {(pages[page] || []).map((groupe) => (
-            <section className="calendrier-section" key={groupe.date}>
-              <h2 className="calendrier-titre-section">{libelleDate(groupe.date)}</h2>
-              <ul className="liste-calendrier">
-                {groupe.items.map((s) => {
-                  const vu = vus.has(cleEpisode(s));
-                  return (
-                    <li className="item-calendrier" key={`${s.tmdbId}-${s.saison ?? 'f'}-${s.episode ?? ''}`}>
-                      <button type="button" className="item-calendrier-corps" onClick={() => open(s)}>
-                        <div className="datebox" aria-hidden="true"><b>{s.mediaType === 'tv' ? '▶' : '★'}</b></div>
-                        <div className="texte">
-                          <h2>{s.title}</h2>
-                          <p className="secondaire">
-                            {s.saison != null ? `S${s.saison} E${s.episode}${s.titreEpisode ? ` · ${s.titreEpisode}` : ''}` : 'Film'}
-                          </p>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        className={vu ? 'marquer-vu vu' : 'marquer-vu'}
-                        onClick={() => marquerVu(s)}
-                        disabled={vu}
-                        aria-label={vu ? `${s.title} déjà marqué comme vu` : `Marquer ${s.title} comme vu`}
-                      >
-                        {vu ? '✓' : '＋'}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </>
-      )}
+        <p className="secondaire calendrier-vide">Aucune sortie cette semaine parmi tes séries et films suivis.</p>
+      ) : groupes.map((groupe) => (
+        <section className="calendrier-section" key={groupe.date}>
+          <h2 className="calendrier-titre-section">{libelleDate(groupe.date)}</h2>
+          <ul className="liste-calendrier">
+            {groupe.items.map((s) => {
+              const vu = vus.has(cleEpisode(s));
+              return (
+                <li className="item-calendrier" key={`${s.tmdbId}-${s.saison ?? 'f'}-${s.episode ?? ''}`}>
+                  <button type="button" className="item-calendrier-corps" onClick={() => open(s)}>
+                    <div className="datebox" aria-hidden="true"><b>{s.mediaType === 'tv' ? '▶' : '★'}</b></div>
+                    <div className="texte">
+                      <h2>{s.title}</h2>
+                      <p className="secondaire">
+                        {s.saison != null ? `S${s.saison} E${s.episode}${s.titreEpisode ? ` · ${s.titreEpisode}` : ''}` : 'Film'}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className={vu ? 'marquer-vu vu' : 'marquer-vu'}
+                    onClick={() => marquerVu(s)}
+                    disabled={vu}
+                    aria-label={vu ? `${s.title} déjà marqué comme vu` : `Marquer ${s.title} comme vu`}
+                  >
+                    {vu ? '✓' : '＋'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+
+      <button type="button" className="semaine-nav" onClick={() => changerSemaine(1)}>
+        Semaine suivante <span aria-hidden="true">›</span>
+      </button>
 
       <TitleModal selected={selected} onClose={close} />
     </section>

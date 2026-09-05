@@ -44,7 +44,7 @@ export default function Statistiques() {
     if (!historique) return [];
     return grouperParDate(historique, (e) => dateLocale(e.watchedAt));
   }, [historique]);
-  const pages = useMemo(() => paginer(groupes, 20), [groupes]);
+  const pages = useMemo(() => paginer(groupes, 5), [groupes]);
 
   if (stats === null) return <div className="ecran" aria-busy="true" />;
 
