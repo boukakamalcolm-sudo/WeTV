@@ -8,7 +8,7 @@ import Fiche from './components/FicheV2';
 import Bienvenue from './components/Bienvenue';
 import AuthLanding from './components/AuthLanding';
 import { Amorcage, Tri } from './components/Decouverte';
-import { telechargerExport, preferences, synchroniser } from './lib/store';
+import { telechargerExport, preferences, synchroniser, telecharger } from './lib/store';
 import { onAuthChange, seDeconnecter } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { notifier } from './lib/toast';
@@ -40,7 +40,18 @@ export default function App() {
 
   useEffect(() => onAuthChange((u) => {
     setUtilisateur(u);
-    if (u) synchroniser();
+    if (u) {
+      (async () => {
+        // Rapatrie d'abord ce qui existe déjà côté compte (nouvel appareil,
+        // même compte Google), avant de repousser d'éventuels changements
+        // locaux en attente — sinon un nouvel appareil reste vide.
+        await telecharger();
+        synchroniser();
+        const p = await preferences();
+        if (p.length > 0) setAmorce(true);
+        dispatchEvent(new CustomEvent('tracker:updated'));
+      })();
+    }
   }), []);
 
   if (!bienvenueVue) return <Bienvenue onFini={() => { localStorage.setItem(WELCOME_KEY, '1'); setBienvenueVue(true); }} />;

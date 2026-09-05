@@ -79,9 +79,16 @@ jamais contourner cette isolation.
 
 Local d'abord : IndexedDB est la source de vérité, une file d'attente
 ("outbox") pousse les écritures vers Supabase en tâche de fond, un lot à la
-fois, sans jamais bloquer un geste. À sens unique (local → distant) pour
-l'instant : c'est une sauvegarde multi-appareils, pas encore une fusion de
-deux historiques locaux divergents.
+fois, sans jamais bloquer un geste. À la connexion, un rapatriement
+(`telecharger()`) redescend d'abord ce qui existe déjà côté compte avant de
+repousser les changements locaux en attente — sans quoi se connecter sur un
+nouvel appareil avec le même compte ne montrait aucune donnée. Le
+dédoublonnage se fait par `(tmdb_id, media_type)` pour `items` et
+`preferences` (déjà la clé unique côté serveur), et par `remoteId` déjà connu
+localement pour `entries` (pas de contrainte d'unicité serveur, un rewatch
+étant une ligne de plus). Ce n'est pas encore une fusion de deux historiques
+locaux divergents : le rapatriement complète le local, il ne résout pas un
+conflit entre deux appareils modifiés hors ligne en parallèle.
 
 ## Stack technique
 
