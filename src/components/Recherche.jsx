@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { search, poster } from '../lib/tmdb';
 import { ajouterItem } from '../lib/store';
+import { marquerToutVu } from '../lib/completion';
 import { notifier } from '../lib/toast';
 
 export default function Recherche({ onAjout }) {
@@ -58,7 +59,7 @@ export default function Recherche({ onAjout }) {
               <button
                 type="button"
                 className="action discret"
-                onClick={async () => { await ajouterItem(t, 'completed'); notifier(`${t.title} marqué comme déjà vu`); onAjout?.(t); }}
+                onClick={async () => { const localId = await ajouterItem(t, 'watchlist'); await marquerToutVu(localId); notifier(`${t.title} marqué comme déjà vu`); onAjout?.(t); dispatchEvent(new CustomEvent('tracker:updated')); }}
                 aria-label={`Marquer ${t.title} comme déjà vu`}
               >
                 <span aria-hidden="true">✓</span>
