@@ -5,6 +5,7 @@ import { poster } from '../lib/tmdb';
 import PageTabs from './PageTabs';
 
 const JOURS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const MAX_HISTORIQUE = 50; // au-delà, l'écran devient une liste sans fin plutôt qu'une vraie stat
 
 function dateLocale(ts) {
   const d = new Date(ts);
@@ -42,9 +43,10 @@ export default function Statistiques() {
 
   const groupes = useMemo(() => {
     if (!historique) return [];
-    return grouperParDate(historique, (e) => dateLocale(e.watchedAt));
+    return grouperParDate(historique.slice(0, MAX_HISTORIQUE), (e) => dateLocale(e.watchedAt));
   }, [historique]);
   const pages = useMemo(() => paginer(groupes, 5), [groupes]);
+  const tronque = (historique?.length ?? 0) > MAX_HISTORIQUE;
 
   if (stats === null) return <div className="ecran" aria-busy="true" />;
 
@@ -121,6 +123,7 @@ export default function Statistiques() {
       )}
 
       <h2 className="stats-titre-section">Ce que tu as regardé</h2>
+      {tronque && <p className="secondaire calendrier-sous-titre">Les {MAX_HISTORIQUE} derniers visionnages. L'export complet reste disponible dans Réglages.</p>}
       {!groupes.length ? (
         <p className="secondaire">Rien de regardé pour l'instant.</p>
       ) : (

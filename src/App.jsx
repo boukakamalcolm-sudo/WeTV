@@ -11,6 +11,7 @@ import { telechargerExport, preferences, synchroniser, telecharger } from './lib
 import { onAuthChange, seDeconnecter } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { notifier } from './lib/toast';
+import { useInstallable } from './lib/install';
 import './styles.css';
 import './components/FicheV2.css';
 
@@ -30,6 +31,7 @@ export default function App() {
   const route = useRoute();
   const [amorce, setAmorce] = useState(null);
   const [utilisateur, setUtilisateur] = useState(undefined);
+  const [instructionsIOS, setInstructionsIOS] = useState(false);
 
   useEffect(() => {
     preferences().then((p) => setAmorce(p.length > 0 || !!localStorage.getItem(SEEDING_KEY)));
@@ -62,7 +64,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header utilisateur={utilisateur} />
+      <Header utilisateur={utilisateur} onDemanderInstructionsIOS={() => setInstructionsIOS(true)} />
       <main>
         {route === '/' && <WatchFlowHome utilisateur={utilisateur} />}
         {route === '/bibliotheque' && <Bibliotheque />}
@@ -79,13 +81,17 @@ export default function App() {
         <Tab href="#/calendrier" active={route === '/calendrier'} label="Calendrier" icon="◫" />
         <Tab href="#/stats" active={route === '/stats'} label="Statistiques" icon="◔" />
       </nav>
+      {/* Rendu hors du header : le backdrop-filter du header crée son propre
+          bloc de positionnement, ce qui casserait le position:fixed du modal. */}
+      {instructionsIOS && <InstructionsInstallationIOS onClose={() => setInstructionsIOS(false)} />}
     </div>
   );
 }
 
-function Header({ utilisateur }) {
+function Header({ utilisateur, onDemanderInstructionsIOS }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
+  const { disponible: installDisponible, installer } = useInstallable();
   useEffect(() => {
     if (!open) return;
     const close = (e) => { if (!menuRef.current?.contains(e.target)) setOpen(false); };
@@ -102,12 +108,37 @@ function Header({ utilisateur }) {
         <div className="account-menu" ref={menuRef}>
           <button className="header-icon" type="button" aria-expanded={open} aria-label="Menu du compte" onClick={() => setOpen((v) => !v)}>⋯</button>
           {open && <div className="account-popover">
+            {installDisponible && (
+              <button type="button" onClick={async () => { setOpen(false); const resultat = await installer(); if (resultat === 'ios') onDemanderInstructionsIOS(); }}>
+                Installer l'app
+              </button>
+            )}
             <a href="#/reglages" onClick={() => setOpen(false)}>Réglages</a>
             {utilisateur && <button type="button" onClick={async () => { setOpen(false); await seDeconnecter(); window.location.hash = '/'; window.location.reload(); }}>Se déconnecter</button>}
           </div>}
         </div>
       </div>
     </header>
+  );
+}
+
+function InstructionsInstallationIOS({ onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div className="title-modal install-instructions" role="dialog" aria-modal="true" aria-label="Installer l'app" onClick={(e) => e.stopPropagation()}>
+        <span className="title-modal-grip" aria-hidden="true" />
+        <button className="modal-close" onClick={onClose} aria-label="Fermer">×</button>
+        <div className="title-modal-content">
+          <p className="eyebrow">INSTALLER L'APP</p>
+          <h2>Ajoute WatchFlow à ton écran d'accueil</h2>
+          <ol className="install-etapes">
+            <li>Appuie sur <strong>Partager</strong> <span aria-hidden="true">⬆︎</span> en bas de Safari</li>
+            <li>Choisis <strong>Sur l'écran d'accueil</strong></li>
+            <li>Confirme en appuyant sur <strong>Ajouter</strong></li>
+          </ol>
+        </div>
+      </div>
+    </div>
   );
 }
 

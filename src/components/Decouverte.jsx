@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { poster } from '../lib/tmdb';
 import { grilleAmorcage, propositions } from '../lib/reco';
 import { jugerTitre, ajouterItem } from '../lib/store';
@@ -124,9 +124,20 @@ export function Amorcage({ onFini }) {
   );
 }
 
+// Direction de sortie par action : gauche pour un rejet, droite pour une
+// envie, vers le haut pour "déjà vu" — chaque bouton a sa propre trajectoire,
+// pas seulement l'effet de bord d'un retrait instantané de la liste.
+const SORTIES = {
+  dislike: { x: -420, y: 0 },
+  watchlist: { x: 420, y: 0 },
+  completed: { x: 0, y: -520 },
+};
+const DUREE_SORTIE = 260;
+
 export function Tri() {
   const [pile, setPile] = useState([]);
   const [chargement, setChargement] = useState(true);
+  const [sortie, setSortie] = useState(null); // { id, ...trajectoire } de la carte en cours de sortie
 
   useEffect(() => { propositions().then((p) => { setPile(p); setChargement(false); }); }, []);
 
@@ -134,7 +145,12 @@ export function Tri() {
   // souvenir (déjà vu ailleurs), sinon la bibliothèque se remplit de titres
   // dont le statut réel est faux dès l'ajout.
   const juger = async (t, action) => {
-    setPile((p) => p.filter((x) => x.tmdbId !== t.tmdbId));   // retrait optimiste
+    if (sortie) return; // une sortie est déjà en cours, laisse l'animation finir
+    setSortie({ id: t.tmdbId, ...SORTIES[action] });
+    setTimeout(() => {
+      setPile((p) => p.filter((x) => x.tmdbId !== t.tmdbId));
+      setSortie(null);
+    }, DUREE_SORTIE);
     if (action === 'dislike') {
       await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict: 'dislike' });
     } else {
@@ -166,20 +182,20 @@ export function Tri() {
 
       <div className="tri-pile">
         {second && <Carte titre={second} pile aria-hidden="true" />}
-        <Carte titre={haut} onJuger={juger} key={haut.tmdbId} />
+        <Carte titre={haut} onJuger={juger} sortieVers={sortie?.id === haut.tmdbId ? sortie : null} key={haut.tmdbId} />
       </div>
 
       {/* Alternative non gestuelle au balayage, et chemin le plus fiable à une main. */}
       <div className="tri-actions">
-        <button type="button" className="tri-btn tri-btn-non" onClick={() => juger(haut, 'dislike')} aria-label="Pas pour moi">
+        <motion.button type="button" className="tri-btn tri-btn-non" whileTap={{ scale: 0.88 }} onClick={() => juger(haut, 'dislike')} aria-label="Pas pour moi">
           <span aria-hidden="true">✕</span><small>Pas pour moi</small>
-        </button>
-        <button type="button" className="tri-btn tri-btn-liste" onClick={() => juger(haut, 'watchlist')} aria-label="Ajouter à ma liste">
+        </motion.button>
+        <motion.button type="button" className="tri-btn tri-btn-liste" whileTap={{ scale: 0.88 }} onClick={() => juger(haut, 'watchlist')} aria-label="Ajouter à ma liste">
           <span aria-hidden="true">＋</span><small>Ma liste</small>
-        </button>
-        <button type="button" className="tri-btn tri-btn-vu" onClick={() => juger(haut, 'completed')} aria-label="Déjà vu">
+        </motion.button>
+        <motion.button type="button" className="tri-btn tri-btn-vu" whileTap={{ scale: 0.88 }} onClick={() => juger(haut, 'completed')} aria-label="Déjà vu">
           <span aria-hidden="true">✓</span><small>Déjà vu</small>
-        </button>
+        </motion.button>
       </div>
 
       <p className="secondaire compte">{reste.length + 1} proposition{reste.length ? 's' : ''} en attente</p>
@@ -187,10 +203,20 @@ export function Tri() {
   );
 }
 
-function Carte({ titre, onJuger, pile }) {
+function Carte({ titre, onJuger, pile, sortieVers }) {
   const x = useMotionValue(0);
-  const rotation = useTransform(x, [-200, 200], [-8, 8]);
+  const y = useMotionValue(0);
+  const rotation = useTransform(x, [-500, 500], [-20, 20]);
   const opacite = useTransform(x, [-200, 0, 200], [0.3, 1, 0.3]);
+
+  // Anime la sortie déclenchée par un bouton, avec la même texture que le
+  // relâcher d'un balayage — pas juste un retrait instantané de la pile.
+  useEffect(() => {
+    if (!sortieVers) return;
+    const c1 = animate(x, sortieVers.x, { duration: DUREE_SORTIE / 1000, ease: 'easeIn' });
+    const c2 = animate(y, sortieVers.y, { duration: DUREE_SORTIE / 1000, ease: 'easeIn' });
+    return () => { c1.stop(); c2.stop(); };
+  }, [sortieVers]);
 
   if (pile) {
     return (
@@ -203,8 +229,8 @@ function Carte({ titre, onJuger, pile }) {
   return (
     <motion.article
       className="carte-tri"
-      style={{ x, rotate: rotation, opacity: opacite }}
-      drag="x"
+      style={{ x, y, rotate: rotation, opacity: opacite }}
+      drag={sortieVers ? false : 'x'}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.3}
       onDragEnd={(_, info) => {
