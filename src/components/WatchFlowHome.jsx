@@ -8,6 +8,8 @@ export default function WatchFlowHome() {
   const [recent, setRecent] = useState([]);
   const [stats, setStats] = useState({ hours: 0, episodes: 0, movies: 0, favorite: '—' });
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState('');
 
   async function load() {
     setLoading(true);
@@ -23,12 +25,22 @@ export default function WatchFlowHome() {
         const watched = watchedByItem.get(show.localId) || [];
         const episodes = watched.filter((e) => e.episode != null).length;
         const total = Number(show.totalEpisodes || itemById.get(show.localId)?.totalEpisodes || 0);
-        return { ...show, progress: total ? Math.min(100, Math.round((episodes / total) * 100)) : 0, art: poster(show.posterPath, 'w780') };
-      }).sort((a,b) => (b.item?.updatedAt || b.vuLe || 0) - (a.item?.updatedAt || a.vuLe || 0)));
+        return { ...show, progress: total ? Math.min(100, Math.round((episodes / total) * 100)) : 0, art: poster(show.backdropPath || show.posterPath, 'w780') };
+      }));
 
-      const sortedRecent = [...allEntries].sort((a,b)=>new Date(b.watchedAt)-new Date(a.watchedAt)).slice(0,8)
-        .map(e=>({...e,item:itemById.get(e.itemId)}));
-      setRecent(sortedRecent);
+      // Historique par œuvre, 5 cartes max — la répétition d'épisodes d'une même œuvre
+      // ne gonfle plus la section.
+      const grouped = new Map();
+      for (const e of allEntries) {
+        const item = itemById.get(e.itemId);
+        if (!item) continue;
+        const current = grouped.get(e.itemId);
+        if (!current || new Date(e.watchedAt).getTime() > new Date(current.latest.watchedAt).getTime()) {
+          grouped.set(e.itemId, { item, latest: e, count: (current?.count || 0) + 1 });
+        } else current.count += 1;
+      }
+      setRecent([...grouped.values()].sort((a,b)=>new Date(b.latest.watchedAt)-new Date(a.latest.watchedAt)).slice(0,5));
+
       const total = allEntries.reduce((s,e)=>s+Number(e.runtimeMin||0),0);
       const episodes = allEntries.filter(e=>e.episode!=null).length;
       const movies = allEntries.filter(e=>e.episode==null).length;
@@ -46,15 +58,28 @@ export default function WatchFlowHome() {
   }
 
   return <div className="watchflow-home">
-    <section className="watchflow-head"><div><p className="eyebrow">TON SUIVI</p><h1>Bonsoir Malcolm <span aria-hidden="true">👋</span></h1><p className="subtitle">Reprends exactement là où tu t'es arrêté.</p></div><a className="watchflow-add" href="#/recherche">＋ Ajouter</a></section>
+    <section className="watchflow-head">
+      <div><p className="eyebrow">TON SUIVI</p><h1>Bonsoir Malcolm <span aria-hidden="true">👋</span></h1><p className="subtitle">Reprends exactement là où tu t'es arrêté.</p></div>
+      <button className="watchflow-add" type="button" onClick={()=>setAdding(v=>!v)}>{adding?'× Fermer':'＋ Ajouter'}</button>
+    </section>
+
+    {adding && <QuickAdd query={query} setQuery={setQuery} />}
+
     <section><div className="section-title-row compact"><div><p className="eyebrow">EN COURS</p><h2>Continuer à regarder</h2></div>{watching.length>0&&<a className="link-btn" href="#/bibliotheque">Tout voir →</a>}</div>
       {loading?<div className="watchflow-empty">Chargement de ta bibliothèque…</div>:watching.length?<div className="watchflow-cards">{watching.slice(0,6).map((show,i)=><motion.article key={show.localId} className={`watchflow-card ${i===0?'featured':''}`} whileTap={{scale:.99}}>
         <div className="watchflow-art" style={{backgroundImage:`url(${show.art||''})`}}/><div className="watchflow-overlay"/><div className="watchflow-copy"><span>SÉRIE</span><h3>{show.title}</h3><p>{`Saison ${show.prochaine} • Épisode ${show.prochain}`}</p><div className="watchflow-progress"><i style={{width:`${show.progress}%`}}/></div></div><button className="watchflow-play" onClick={()=>markAsSeen(show)} aria-label={`Marquer l'épisode suivant de ${show.title} comme vu`}>✓</button>
       </motion.article>)}</div>:<div className="watchflow-empty"><strong>Ta prochaine soirée commence ici.</strong><p>Ajoute une série ou un film pour voir ton suivi apparaître ici.</p><a className="watchflow-add" href="#/recherche">Chercher un titre</a></div>}
     </section>
+
     <section className="watchflow-stats"><Stat label="Watchtime total" value={`${stats.hours} h`} note="Depuis le début" icon="◷"/><Stat label="Épisodes vus" value={stats.episodes} note="Historique" icon="✓"/><Stat label="Films vus" value={stats.movies} note="Historique" icon="★"/><Stat label="Titre favori" value={stats.favorite} note="Le plus regardé" icon="⚡"/></section>
-    <section className="watchflow-lower"><div className="watchflow-panel"><div className="section-title-row compact"><div><p className="eyebrow">TON RYTHME</p><h2>Activité cette semaine</h2></div><span className="watchflow-pill">7 derniers jours</span></div><WeekChart entries={recent}/></div><div className="watchflow-panel"><div className="section-title-row compact"><div><p className="eyebrow">HISTORIQUE</p><h2>Vu récemment</h2></div></div><div className="watchflow-history">{recent.length?recent.map(r=><div className="watchflow-history-item" key={r.localId}><div className="watchflow-thumb" style={{backgroundImage:`url(${poster(r.item?.posterPath,'w185')||''})`}}/><div><strong>{r.item?.title||'Titre'}</strong><span>{r.episode?`S${r.season} E${r.episode}`:'Film'} · {r.runtimeMin||0} min</span></div></div>):<p className="subtitle">Ton historique apparaîtra ici.</p>}</div></div></section>
+    <section className="watchflow-lower"><div className="watchflow-panel"><div className="section-title-row compact"><div><p className="eyebrow">TON RYTHME</p><h2>Activité cette semaine</h2></div><span className="watchflow-pill">7 derniers jours</span></div><WeekChart entries={recent.map(x=>x.latest)}/></div><div className="watchflow-panel"><div className="section-title-row compact"><div><p className="eyebrow">HISTORIQUE</p><h2>Vu récemment</h2></div></div><div className="watchflow-history">{recent.length?recent.map(r=><div className="watchflow-history-item" key={r.item.localId}><div className="watchflow-thumb" style={{backgroundImage:`url(${poster(r.item.posterPath,'w185')||''})`}}/><div><strong>{r.item.title}</strong><span>{r.item.mediaType==='tv'?`${r.count} épisode${r.count>1?'s':''} • dernier vu S${r.latest.season} E${r.latest.episode}`:`Film • ${r.latest.runtimeMin||0} min`}</span></div></div>):<p className="subtitle">Ton historique apparaîtra ici.</p>}</div></div></section>
+
+    <section className="watchflow-panel discovery-teaser"><div><p className="eyebrow">POUR TOI</p><h2>Découvrir</h2><p className="subtitle">Une sélection personnalisée, entre affinités et découvertes.</p></div><a className="watchflow-add" href="#/decouvrir">Explorer</a></section>
   </div>;
+}
+
+function QuickAdd({query,setQuery}){
+  return <div className="quick-add"><label className="quick-add-search"><span>⌕</span><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Commence à taper un titre…"/><kbd>Esc</kbd></label>{query.trim().length>1?<div className="quick-add-results"><a href={`#/recherche?q=${encodeURIComponent(query)}`}>Rechercher « {query} » dans TMDB →</a></div>:<p className="subtitle">Les résultats apparaîtront au fur et à mesure de ta saisie.</p>}</div>
 }
 function Stat({label,value,note,icon}){return <div className="watchflow-stat"><div className="watchflow-stat-icon">{icon}</div><div><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>}
 function WeekChart({entries}){const now=new Date();const values=Array.from({length:7},(_,i)=>{const d=new Date(now);d.setHours(0,0,0,0);d.setDate(now.getDate()-(6-i));return entries.filter(e=>new Date(e.watchedAt).toDateString()===d.toDateString()).reduce((s,e)=>s+Number(e.runtimeMin||0),0)});const max=Math.max(1,...values);return <div className="watchflow-chart">{values.map((v,i)=><div className="bar-wrap" key={i}><div className="bar" style={{height:`${Math.max(8,v/max*100)}%`}}/><small>{['L','M','M','J','V','S','D'][i]}</small></div>)}</div>}
