@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { sortiesConnues } from '../lib/calendrier';
 import { entries as entriesStore, cocher, majStatut } from '../lib/store';
+import { verifierCompletionSerie } from '../lib/completion';
 import { grouperParDate } from '../lib/pagination';
 import TitleModal, { useTitleModal } from './TitleModal';
 
@@ -82,6 +83,7 @@ export default function Calendrier() {
   async function marquerVu(s) {
     if (s.saison != null) {
       await cocher({ itemId: s.localId, season: s.saison, episode: s.episode, airDate: s.date });
+      await verifierCompletionSerie(s.localId); // "Terminé" seulement si toutes les saisons sont vues
     } else {
       await cocher({ itemId: s.localId, season: null, episode: null });
       await majStatut(s.localId, 'completed');

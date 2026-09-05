@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { aSuivre, cocher, items, entries, ajouterItem } from '../lib/store';
+import { verifierCompletionSerie } from '../lib/completion';
 import { poster, search } from '../lib/tmdb';
 import { notifier } from '../lib/toast';
 import { prenom } from '../lib/auth';
@@ -64,6 +65,7 @@ export default function WatchFlowHome({ utilisateur }) {
 
   async function markAsSeen(show){
     await cocher({itemId:show.localId,season:show.prochaine,episode:show.prochain,runtimeMin:show.runtimeMin});
+    await verifierCompletionSerie(show.localId); // "Terminé" seulement si toutes les saisons sont vues
     window.dispatchEvent(new CustomEvent('tracker:updated'));
   }
 
