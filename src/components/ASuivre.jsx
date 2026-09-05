@@ -49,15 +49,10 @@ function Carte({ serie, onValider }) {
       onDragEnd={(_, info) => { if (info.offset.x > 110) onValider(); }}
     >
       <a className="carte-lien" href={`#/titre/tv/${serie.tmdbId}`}>
-        <img
-          src={poster(serie.posterPath)}
-          alt=""
-          width="64"
-          height="96"
-          loading="lazy"
-        />
-
-        <div className="texte">
+        <img src={poster(serie.posterPath, 'w500')} alt="" loading="lazy" />
+        <div className="carte-voile" aria-hidden="true" />
+        <div className="carte-texte">
+          <span className="tag">Série</span>
           <h2>{serie.title}</h2>
           <p>Saison {serie.prochaine}, épisode {serie.prochain}</p>
         </div>

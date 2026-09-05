@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { search, poster } from '../lib/tmdb';
 import { ajouterItem } from '../lib/store';
+import { notifier } from '../lib/toast';
 
 export default function Recherche({ onAjout }) {
   const [q, setQ] = useState('');
@@ -39,15 +40,15 @@ export default function Recherche({ onAjout }) {
                 <h2>{t.title}</h2>
                 <p>
                   {t.mediaType === 'tv' ? 'Série' : 'Film'}
-                  {t.documentaire && ' documentaire'}
                   {t.year && ` · ${t.year}`}
+                  {t.documentaire && <span className="badge">Documentaire</span>}
                 </p>
               </div>
             </a>
             <button
               type="button"
               className="action"
-              onClick={async () => { await ajouterItem(t); onAjout?.(t); }}
+              onClick={async () => { await ajouterItem(t); notifier(`${t.title} ajouté à ta bibliothèque`); onAjout?.(t); }}
               aria-label={`Suivre ${t.title}`}
             >
               <span aria-hidden="true">+</span>
