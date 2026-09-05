@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { aSuivre, cocher, items, entries, ajouterItem } from '../lib/store';
-import { verifierCompletionSerie } from '../lib/completion';
+import { verifierCompletionSerie, marquerToutVu } from '../lib/completion';
 import { poster, search } from '../lib/tmdb';
 import { notifier } from '../lib/toast';
 import { prenom } from '../lib/auth';
@@ -70,7 +70,8 @@ export default function WatchFlowHome({ utilisateur }) {
   }
 
   async function addTitle(t, statut){
-    await ajouterItem(t, statut);
+    const localId = await ajouterItem(t, statut === 'completed' ? 'watchlist' : statut);
+    if (statut === 'completed') await marquerToutVu(localId);
     notifier(statut==='completed' ? `${t.title} marqué comme déjà vu` : `${t.title} ajouté à ta liste`);
     setQuery(''); setResults([]); setAdding(false);
     window.dispatchEvent(new CustomEvent('tracker:updated'));

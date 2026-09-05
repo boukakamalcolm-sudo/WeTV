@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { poster } from '../lib/tmdb';
 import { grilleAmorcage, propositions } from '../lib/reco';
 import { jugerTitre, ajouterItem } from '../lib/store';
+import { marquerToutVu } from '../lib/completion';
 
 // Deux temps. La grille pour amorcer, plus rapide parce qu'on balaye l'ensemble
 // d'un coup d'oeil. Puis le tri carte à carte, qui affine en continu.
@@ -155,7 +156,9 @@ export function Tri() {
       await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict: 'dislike' });
     } else {
       await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict: 'like' });
-      await ajouterItem(t, action); // 'watchlist' ou 'completed'
+      const localId = await ajouterItem(t, action === 'completed' ? 'watchlist' : action);
+      if (action === 'completed') await marquerToutVu(localId);
+      dispatchEvent(new CustomEvent('tracker:updated'));
     }
   };
 

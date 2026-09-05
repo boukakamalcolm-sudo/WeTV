@@ -119,13 +119,13 @@ function FilmAction({ item, data }) {
     <div className="episodes-panel">
       <button
         type="button"
-        className={vu ? 'episode-row film-toggle watched' : 'episode-row film-toggle'}
+        className={vu ? 'film-action-btn watched' : 'film-action-btn'}
         onClick={basculer}
         disabled={enCours}
         aria-pressed={vu}
       >
-        <span className="episode-check" aria-hidden="true">{vu ? '✓' : ''}</span>
-        <span className="episode-info"><strong>{vu ? 'Déjà vu' : 'Marquer comme vu'}</strong></span>
+        <span className="film-action-check" aria-hidden="true">{vu ? '✓' : ''}</span>
+        <strong>{vu ? 'Déjà vu' : 'Marquer comme vu'}</strong>
       </button>
     </div>
   );
