@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ASuivre from './components/ASuivre';
 import Recherche from './components/Recherche';
 import Fiche from './components/Fiche';
@@ -83,6 +83,8 @@ export default function App() {
 
   return (
     <div className="app">
+      <Entete utilisateur={utilisateur} />
+
       <main>
         {route === '/' && <ASuivre />}
         {route === '/recherche' && <Recherche onAjout={(t) => (location.hash = `/titre/${t.mediaType}/${t.tmdbId}`)} />}
@@ -99,6 +101,63 @@ export default function App() {
         <Onglet href="#/reglages" actif={route === '/reglages'} libelle="Réglages" icone="⚙" />
       </nav>
     </div>
+  );
+}
+
+// En-tête d'appli : le nom, et un menu de compte pour les actions rapides
+// (se déconnecter en particulier) sans avoir à passer par Réglages.
+function Entete({ utilisateur }) {
+  const [ouvert, setOuvert] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!ouvert) return;
+    const fermerSiExterieur = (e) => { if (!menuRef.current?.contains(e.target)) setOuvert(false); };
+    const fermerSurEchap = (e) => { if (e.key === 'Escape') setOuvert(false); };
+    document.addEventListener('pointerdown', fermerSiExterieur);
+    document.addEventListener('keydown', fermerSurEchap);
+    return () => {
+      document.removeEventListener('pointerdown', fermerSiExterieur);
+      document.removeEventListener('keydown', fermerSurEchap);
+    };
+  }, [ouvert]);
+
+  return (
+    <header className="entete-app">
+      <span className="logo">Tracker</span>
+
+      <div className="menu-compte" ref={menuRef}>
+        <button
+          type="button"
+          className="menu-bouton"
+          aria-haspopup="menu"
+          aria-expanded={ouvert}
+          aria-label="Menu du compte"
+          onClick={() => setOuvert((o) => !o)}
+        >
+          <span aria-hidden="true">⋯</span>
+        </button>
+
+        {ouvert && (
+          <ul className="menu-liste" role="menu">
+            <li role="none">
+              <a role="menuitem" href="#/reglages" onClick={() => setOuvert(false)}>Réglages</a>
+            </li>
+            <li role="none">
+              {utilisateur ? (
+                <button role="menuitem" type="button" onClick={() => { setOuvert(false); seDeconnecter(); }}>
+                  Se déconnecter
+                </button>
+              ) : (
+                <button role="menuitem" type="button" onClick={() => { setOuvert(false); connecterAvecGoogle(); }}>
+                  Se connecter
+                </button>
+              )}
+            </li>
+          </ul>
+        )}
+      </div>
+    </header>
   );
 }
 

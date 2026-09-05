@@ -86,6 +86,46 @@ h2 { font-size: 1rem; font-weight: 560; margin: 0; }
 
 .app { min-height: 100dvh; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 
+/* Reste au-dessus du contenu qui défile dessous : c'est ce qui rend le flou
+   du verre liquide visible, contrairement aux puces posées sur fond uni. */
+.entete-app {
+  position: sticky; top: 0; z-index: 6;
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: var(--tactile);
+  padding: 0 calc(var(--pas) * 2);
+  padding-top: env(safe-area-inset-top);
+  background: color-mix(in srgb, var(--fond) 70%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-bottom: 1px solid var(--trait);
+}
+.entete-app .logo { font-weight: 700; font-size: 1.0625rem; }
+
+.menu-compte { position: relative; }
+.menu-bouton {
+  width: var(--tactile); height: var(--tactile); border-radius: 50%;
+  border: 1px solid var(--trait); background: transparent; color: var(--texte);
+  font-size: 1.25rem; line-height: 1; cursor: pointer;
+}
+.menu-liste {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 7;
+  list-style: none; margin: 0; padding: 6px; min-width: 190px;
+  display: grid; gap: 2px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid var(--trait); border-radius: var(--rayon);
+  box-shadow: 0 8px 24px rgba(0 0 0 / 0.4);
+}
+.menu-liste a, .menu-liste button {
+  display: flex; align-items: center;
+  min-height: var(--tactile); padding: 0 var(--pas);
+  border: 0; border-radius: 8px; background: none;
+  color: var(--texte); font: inherit; font-size: 0.9375rem;
+  text-decoration: none; text-align: left; width: 100%; cursor: pointer;
+}
+.menu-liste a:hover, .menu-liste button:hover { background: var(--trait); }
+
 .ecran { padding: calc(var(--pas) * 2); display: grid; gap: calc(var(--pas) * 1.5); align-content: start; }
 
 .barre {
@@ -161,20 +201,33 @@ textarea { padding: var(--pas); min-height: 96px; }
 
 /* --- Découverte --- */
 
-/* Un type à la fois (onglets), un genre à la fois (puces), une seule rangée
-   d'affiches : la hauteur d'écran ne bouge jamais, pas d'effet catalogue. */
-.onglets-type { display: flex; gap: var(--pas); }
-.onglets-type .action { flex: 1; }
-
-.puces-genre { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Une seule catégorie à la fois (puces "verre liquide"), une seule rangée
+   d'affiches : la hauteur d'écran ne bouge jamais, pas d'effet catalogue.
+   Le fond dépoli translucide n'a pas la réfraction dynamique du vrai
+   Liquid Glass d'Apple, mais en donne l'esprit en CSS : flou d'arrière-plan,
+   léger dégradé de "reflet", bordure fine et claire. */
+.puces-genre { display: flex; flex-wrap: wrap; gap: 8px; }
 .puce {
-  min-height: var(--tactile); padding: 0 calc(var(--pas) * 1.25);
-  border: 1px solid var(--trait); border-radius: 999px;
-  background: transparent; color: var(--secondaire);
+  min-height: var(--tactile); padding: 0 calc(var(--pas) * 1.5);
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(255 255 255 / 0.14); border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255 255 255 / 0.10), rgba(255 255 255 / 0.02));
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255 255 255 / 0.16);
+  color: var(--secondaire);
   font: inherit; font-size: 0.8125rem; cursor: pointer;
 }
-/* L'état actif ne tient pas qu'à la couleur : bordure et graisse changent aussi. */
-.puce.active { border-color: var(--texte); color: var(--texte); font-weight: 620; }
+/* L'état actif ne tient pas qu'à la couleur : bordure, graisse et fond changent aussi. */
+.puce.active {
+  border-color: rgba(255 255 255 / 0.35); color: var(--texte); font-weight: 620;
+  background: linear-gradient(135deg, rgba(255 255 255 / 0.20), rgba(255 255 255 / 0.06));
+}
+
+/* min-width: 0 annule le comportement par défaut d'un enfant de grid, qui
+   refuse sinon de rétrécir sous la largeur de son contenu — la rangée
+   débordait alors de tout l'écran au lieu de défiler dedans. */
+.rangee-defilement { position: relative; min-width: 0; }
 
 .defilement {
   list-style: none; margin: 0; padding: 2px 2px calc(var(--pas) / 2);
@@ -185,6 +238,21 @@ textarea { padding: var(--pas); min-height: 96px; }
 /* Assez grandes pour qu'on reconnaisse une affiche sans plisser les yeux ;
    la largeur fixe est ce qui rend le défilement horizontal évident. */
 .defilement li { flex: 0 0 auto; scroll-snap-align: start; width: 148px; }
+
+/* Alternative non gestuelle au balayage de la rangée, même esprit verre liquide. */
+.fleche {
+  position: absolute; top: 40%; transform: translateY(-50%); z-index: 2;
+  width: var(--tactile); height: var(--tactile); border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255 255 255 / 0.18);
+  background: linear-gradient(135deg, rgba(255 255 255 / 0.16), rgba(255 255 255 / 0.04));
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255 255 255 / 0.2), 0 2px 8px rgba(0 0 0 / 0.35);
+  color: var(--texte); font-size: 1.25rem; line-height: 1; cursor: pointer;
+}
+.fleche-gauche { left: 2px; }
+.fleche-droite { right: 2px; }
 
 .vignette { padding: 0; width: 100%; border: 2px solid transparent; border-radius: var(--rayon); background: none; position: relative; cursor: pointer; }
 .vignette img { width: 100%; display: block; aspect-ratio: 2 / 3; object-fit: cover; border-radius: calc(var(--rayon) - 2px); transition: filter 0.15s ease; }

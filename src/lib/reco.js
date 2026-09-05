@@ -7,21 +7,15 @@ import { items, preferences } from './store';
 
 const GENRES_EXPLORATION = [99, 18, 80, 878, 35, 9648, 36, 10402];
 
-// Identifiants de genre TMDB : distincts entre séries et films pour certaines
-// catégories (l'action des séries est "10759", celle des films "28").
-const GENRES_SERIES = [
-  { id: 10759, label: 'Action & Aventure' },
-  { id: 35, label: 'Comédie' },
-  { id: 18, label: 'Drame' },
-  { id: 16, label: 'Animation' },
-  { id: 10765, label: 'Science-fiction & Fantastique' },
-];
-const GENRES_FILMS = [
-  { id: 28, label: 'Action' },
-  { id: 35, label: 'Comédie' },
-  { id: 18, label: 'Drame' },
-  { id: 16, label: 'Animation' },
-  { id: 878, label: 'Science-fiction' },
+// Une catégorie thématique = un genre séries + son équivalent film, fusionnés :
+// l'utilisateur choisit "Action", pas "Action côté séries" puis "côté films".
+// Les identifiants TMDB diffèrent pourtant entre les deux (10759 vs 28, etc.).
+const CATEGORIES = [
+  { id: 'action', emoji: '💥', label: 'Action', genreTv: 10759, genreMovie: 28 },
+  { id: 'comedie', emoji: '😂', label: 'Comédie', genreTv: 35, genreMovie: 35 },
+  { id: 'drame', emoji: '🎭', label: 'Drame', genreTv: 18, genreMovie: 18 },
+  { id: 'animation', emoji: '🎨', label: 'Animation', genreTv: 16, genreMovie: 16 },
+  { id: 'scifi', emoji: '🚀', label: 'Science-fiction', genreTv: 10765, genreMovie: 878 },
 ];
 
 async function dejaVus() {
@@ -34,35 +28,30 @@ async function dejaVus() {
 
 // Grille d'amorçage : des titres très connus, qu'on reconnaît d'un coup d'oeil.
 // Plus rapide que le tri carte à carte pour démarrer, parce qu'on balaye l'ensemble.
-// Deux grandes catégories (Séries, Films), chacune détaillée en sous-rangées par
-// genre : on reconnaît plus vite un titre dans une catégorie qui a du sens pour lui.
-export async function grilleAmorcage(tailleParGenre = 10) {
-  const [genresSeries, genresFilms] = await Promise.all([
-    genresVersRangees('tv', GENRES_SERIES, tailleParGenre),
-    genresVersRangees('movie', GENRES_FILMS, tailleParGenre),
-  ]);
-  return [
-    { cle: 'tv', emoji: '📺', label: 'Séries', genres: genresSeries },
-    { cle: 'movie', emoji: '🎬', label: 'Films', genres: genresFilms },
-  ];
-}
-
-// Un titre coche souvent plusieurs genres à la fois (une comédie d'action, par
-// exemple) : on le range dans la première rangée où il apparaît, jamais dans
-// les suivantes, pour ne pas le montrer deux fois sur le même écran.
-async function genresVersRangees(type, genresDef, taille) {
+// Une catégorie à la fois (puces), séries et films mélangés dedans : on choisit
+// un thème, pas un type de média. "Tout" ouvre en résumant les autres catégories.
+export async function grilleAmorcage(tailleParCategorie = 12) {
   const dejaPlace = new Set();
-  const rangees = [];
-  for (const { id, label } of genresDef) {
+  const categories = [];
+  for (const cat of CATEGORIES) {
     let titres = [];
     try {
-      const brut = await decouvrir(type, { genre: id });
-      titres = melanger(brut.filter((t) => !dejaPlace.has(t.tmdbId))).slice(0, taille);
-      titres.forEach((t) => dejaPlace.add(t.tmdbId));
-    } catch { /* un genre indisponible ne bloque pas les autres rangées */ }
-    rangees.push({ id, label, titres });
+      const [tv, films] = await Promise.all([
+        decouvrir('tv', { genre: cat.genreTv }),
+        decouvrir('movie', { genre: cat.genreMovie }),
+      ]);
+      // Un titre qui coche plusieurs catégories (une comédie d'action) ne se
+      // range que dans la première rencontrée, jamais montré deux fois.
+      const brut = melanger([...tv, ...films])
+        .filter((t) => !dejaPlace.has(`${t.mediaType}:${t.tmdbId}`));
+      titres = brut.slice(0, tailleParCategorie);
+      titres.forEach((t) => dejaPlace.add(`${t.mediaType}:${t.tmdbId}`));
+    } catch { /* une catégorie indisponible ne bloque pas les autres */ }
+    categories.push({ id: cat.id, emoji: cat.emoji, label: cat.label, titres });
   }
-  return rangees;
+
+  const tout = melanger(categories.flatMap((c) => c.titres)).slice(0, tailleParCategorie);
+  return [{ id: 'tout', emoji: '🍿', label: 'Tout', titres: tout }, ...categories];
 }
 
 export async function propositions(taille = 20) {

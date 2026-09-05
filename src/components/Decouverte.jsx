@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { poster } from '../lib/tmdb';
 import { grilleAmorcage, propositions } from '../lib/reco';
@@ -10,24 +10,12 @@ import { jugerTitre, ajouterItem } from '../lib/store';
 export function Amorcage({ onFini }) {
   const [categories, setCategories] = useState([]);
   const [choisis, setChoisis] = useState(new Set());
-  const [type, setType] = useState('tv');
-  const [genreId, setGenreId] = useState(null);
+  const [categorieId, setCategorieId] = useState('tout');
+  const rangeeRef = useRef(null);
 
-  useEffect(() => {
-    grilleAmorcage().then((cats) => {
-      setCategories(cats);
-      setGenreId(cats.find((c) => c.cle === 'tv')?.genres[0]?.id ?? null);
-    });
-  }, []);
+  useEffect(() => { grilleAmorcage().then(setCategories); }, []);
 
-  const categorie = categories.find((c) => c.cle === type);
-  const genre = categorie?.genres.find((g) => g.id === genreId);
-
-  // Changer de type change aussi les genres disponibles : on repart du premier.
-  const changerType = (t) => {
-    setType(t);
-    setGenreId(categories.find((c) => c.cle === t)?.genres[0]?.id ?? null);
-  };
+  const categorie = categories.find((c) => c.id === categorieId);
 
   const basculer = (t) => {
     const cle = `${t.mediaType}:${t.tmdbId}`;
@@ -38,13 +26,12 @@ export function Amorcage({ onFini }) {
     });
   };
 
-  // Un même titre peut apparaître dans plusieurs genres : on ne l'écrit qu'une fois.
+  // Un même titre peut apparaître dans "Tout" et dans sa catégorie propre :
+  // la Map ne l'écrit qu'une fois, quel que soit le nombre de rangées où il figure.
   const valider = async () => {
     const tous = new Map();
     for (const cat of categories) {
-      for (const g of cat.genres) {
-        for (const t of g.titres) tous.set(`${t.mediaType}:${t.tmdbId}`, t);
-      }
+      for (const t of cat.titres) tous.set(`${t.mediaType}:${t.tmdbId}`, t);
     }
     for (const [cle, t] of tous) {
       await jugerTitre({
@@ -57,6 +44,8 @@ export function Amorcage({ onFini }) {
     onFini?.();
   };
 
+  const defiler = (sens) => rangeeRef.current?.scrollBy({ left: sens * 320, behavior: 'smooth' });
+
   return (
     <section className="ecran amorcage">
       <h1>👋 Bienvenue dans ta bibliothèque</h1>
@@ -68,15 +57,15 @@ export function Amorcage({ onFini }) {
         peux aussi passer cette étape et revenir choisir plus tard.
       </p>
 
-      {/* Un seul type à la fois : pas de rangées empilées, la hauteur d'écran ne bouge pas. */}
-      <div className="onglets-type" role="group" aria-label="Type de titre">
+      {/* Une seule catégorie à la fois : pas de rangées empilées, la hauteur d'écran ne bouge pas. */}
+      <div className="puces-genre" role="group" aria-label="Catégorie">
         {categories.map((cat) => (
           <button
-            key={cat.cle}
+            key={cat.id}
             type="button"
-            className={type === cat.cle ? 'action primaire' : 'action'}
-            aria-pressed={type === cat.cle}
-            onClick={() => changerType(cat.cle)}
+            className={categorieId === cat.id ? 'puce active' : 'puce'}
+            aria-pressed={categorieId === cat.id}
+            onClick={() => setCategorieId(cat.id)}
           >
             <span aria-hidden="true">{cat.emoji}</span> {cat.label}
           </button>
@@ -84,43 +73,43 @@ export function Amorcage({ onFini }) {
       </div>
 
       {categorie && (
-        <div className="puces-genre" role="group" aria-label="Genre">
-          {categorie.genres.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              className={genreId === g.id ? 'puce active' : 'puce'}
-              aria-pressed={genreId === g.id}
-              onClick={() => setGenreId(g.id)}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
-      )}
+        <div className="rangee-defilement">
+          <button
+            type="button"
+            className="fleche fleche-gauche"
+            aria-label="Défiler vers la gauche"
+            onClick={() => defiler(-1)}
+          >‹</button>
 
-      {genre && (
-        <ul className="defilement">
-          {genre.titres.map((t) => {
-            const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
-            return (
-              <li key={`${t.mediaType}-${t.tmdbId}`}>
-                <button
-                  type="button"
-                  className={actif ? 'vignette choisie' : 'vignette'}
-                  aria-pressed={actif}
-                  aria-label={t.title}
-                  onClick={() => basculer(t)}
-                >
-                  <img src={poster(t.posterPath, 'w342')} alt="" loading="lazy" />
-                  {/* L'état choisi n'est pas porté par la seule couleur. */}
-                  {actif && <span className="marque" aria-hidden="true">✅</span>}
-                </button>
-                <p className="vignette-titre">{t.title}</p>
-              </li>
-            );
-          })}
-        </ul>
+          <ul className="defilement" ref={rangeeRef}>
+            {categorie.titres.map((t) => {
+              const actif = choisis.has(`${t.mediaType}:${t.tmdbId}`);
+              return (
+                <li key={`${t.mediaType}-${t.tmdbId}`}>
+                  <button
+                    type="button"
+                    className={actif ? 'vignette choisie' : 'vignette'}
+                    aria-pressed={actif}
+                    aria-label={t.title}
+                    onClick={() => basculer(t)}
+                  >
+                    <img src={poster(t.posterPath, 'w342')} alt="" loading="lazy" />
+                    {/* L'état choisi n'est pas porté par la seule couleur. */}
+                    {actif && <span className="marque" aria-hidden="true">✅</span>}
+                  </button>
+                  <p className="vignette-titre">{t.title}</p>
+                </li>
+              );
+            })}
+          </ul>
+
+          <button
+            type="button"
+            className="fleche fleche-droite"
+            aria-label="Défiler vers la droite"
+            onClick={() => defiler(1)}
+          >›</button>
+        </div>
       )}
 
       <div className="pied fixe">
