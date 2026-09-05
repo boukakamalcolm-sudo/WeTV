@@ -4,15 +4,16 @@ import Recherche from './components/Recherche';
 import Bibliotheque from './components/Bibliotheque';
 import Calendrier from './components/Calendrier';
 import Statistiques from './components/Statistiques';
-import Fiche from './components/Fiche';
+import Fiche from './components/FicheV2';
 import Bienvenue from './components/Bienvenue';
 import AuthLanding from './components/AuthLanding';
 import { Amorcage, Tri } from './components/Decouverte';
 import { telechargerExport, preferences, synchroniser } from './lib/store';
-import { onAuthChange, connecterAvecGoogle, seDeconnecter } from './lib/auth';
+import { onAuthChange, seDeconnecter } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { notifier } from './lib/toast';
 import './styles.css';
+import './components/FicheV2.css';
 
 function useRoute() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || '/');
@@ -42,7 +43,6 @@ export default function App() {
     if (u) synchroniser();
   }), []);
 
-  // Un accès à l'application sans compte n'est plus autorisé.
   if (!bienvenueVue) return <Bienvenue onFini={() => { localStorage.setItem(WELCOME_KEY, '1'); setBienvenueVue(true); }} />;
   if (utilisateur === undefined) return null;
   if (!utilisateur) return <AuthLanding />;
@@ -51,6 +51,7 @@ export default function App() {
   if (!amorce) return <Amorcage onFini={() => { localStorage.setItem(SEEDING_KEY, '1'); setAmorce(true); }} />;
 
   const fiche = route.match(/^\/titre\/(tv|movie)\/(\d+)$/);
+  const closeFiche = () => { location.hash = '/bibliotheque'; };
 
   return (
     <div className="app">
@@ -63,7 +64,7 @@ export default function App() {
         {route === '/recherche' && <Recherche onAjout={(t) => (location.hash = `/titre/${t.mediaType}/${t.tmdbId}`)} />}
         {route === '/decouvrir' && <Tri />}
         {route === '/reglages' && <Settings utilisateur={utilisateur} />}
-        {fiche && <Fiche mediaType={fiche[1]} tmdbId={Number(fiche[2])} />}
+        {fiche && <Fiche mediaType={fiche[1]} tmdbId={Number(fiche[2])} onClose={closeFiche} />}
       </main>
       <nav className="bottom-nav" aria-label="Navigation principale">
         <Tab href="#/" active={route === '/'} label="Accueil" icon="⌂" />
