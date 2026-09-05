@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import ASuivre from './components/ASuivre';
+import WatchFlowHome from './components/WatchFlowHome';
 import Recherche from './components/Recherche';
 import Bibliotheque from './components/Bibliotheque';
 import Calendrier from './components/Calendrier';
 import Statistiques from './components/Statistiques';
 import Fiche from './components/Fiche';
 import Bienvenue from './components/Bienvenue';
-import Connexion from './components/Connexion';
+import AuthLanding from './components/AuthLanding';
 import { Amorcage, Tri } from './components/Decouverte';
 import { telechargerExport, preferences, synchroniser } from './lib/store';
 import { onAuthChange, connecterAvecGoogle, seDeconnecter } from './lib/auth';
@@ -14,234 +14,112 @@ import { supabase } from './lib/supabase';
 import { notifier } from './lib/toast';
 import './styles.css';
 
-// Routage minimal sur le fragment d'URL. Une dépendance de moins,
-// et le retour arrière du navigateur fonctionne tel quel.
 function useRoute() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || '/');
   useEffect(() => {
-    const maj = () => setRoute(location.hash.slice(1) || '/');
-    addEventListener('hashchange', maj);
-    return () => removeEventListener('hashchange', maj);
+    const update = () => setRoute(location.hash.slice(1) || '/');
+    addEventListener('hashchange', update);
+    return () => removeEventListener('hashchange', update);
   }, []);
   return route;
 }
 
-const CLE_BIENVENUE = 'tracker_bienvenue_vue';
-const CLE_SANS_COMPTE = 'tracker_sans_compte';
-const CLE_AMORCE_PASSEE = 'tracker_amorcage_passee';
+const WELCOME_KEY = 'tracker_bienvenue_vue';
+const NO_ACCOUNT_KEY = 'tracker_sans_compte';
+const SEEDING_KEY = 'tracker_amorcage_passee';
 
 export default function App() {
   const route = useRoute();
   const [amorce, setAmorce] = useState(null);
-  const [bienvenueVue, setBienvenueVue] = useState(() => !!localStorage.getItem(CLE_BIENVENUE));
-  const [sansCompte, setSansCompte] = useState(() => !!localStorage.getItem(CLE_SANS_COMPTE));
-  const [utilisateur, setUtilisateur] = useState(undefined); // undefined = pas encore vérifié
+  const [bienvenueVue, setBienvenueVue] = useState(() => !!localStorage.getItem(WELCOME_KEY));
+  const [sansCompte, setSansCompte] = useState(() => !!localStorage.getItem(NO_ACCOUNT_KEY));
+  const [utilisateur, setUtilisateur] = useState(undefined);
 
   useEffect(() => {
-    preferences().then((p) => setAmorce(p.length > 0 || !!localStorage.getItem(CLE_AMORCE_PASSEE)));
+    preferences().then((p) => setAmorce(p.length > 0 || !!localStorage.getItem(SEEDING_KEY)));
   }, []);
+
   useEffect(() => onAuthChange((u) => {
     setUtilisateur(u);
     if (u) synchroniser();
   }), []);
 
-  if (!bienvenueVue) {
-    return (
-      <Bienvenue
-        onFini={() => {
-          localStorage.setItem(CLE_BIENVENUE, '1');
-          setBienvenueVue(true);
-        }}
-      />
-    );
-  }
+  if (!bienvenueVue) return <Bienvenue onFini={() => { localStorage.setItem(WELCOME_KEY, '1'); setBienvenueVue(true); }} />;
+  if (utilisateur === undefined) return null;
 
-  if (utilisateur === undefined) return null; // le temps de vérifier une session existante
-
-  // Une fois connecté, le choix "sans compte" n'a plus lieu d'être.
-  const connexionProposee = !!supabase && !utilisateur && !sansCompte;
-  if (connexionProposee) {
-    return (
-      <Connexion
-        onSansCompte={() => {
-          localStorage.setItem(CLE_SANS_COMPTE, '1');
-          setSansCompte(true);
-        }}
-      />
-    );
+  const shouldOfferLogin = !!supabase && !utilisateur && !sansCompte;
+  if (shouldOfferLogin) {
+    return <AuthLanding onContinueLocal={() => { localStorage.setItem(NO_ACCOUNT_KEY, '1'); setSansCompte(true); }} />;
   }
 
   if (amorce === null) return null;
-  if (!amorce) {
-    return (
-      <Amorcage
-        onFini={() => {
-          localStorage.setItem(CLE_AMORCE_PASSEE, '1');
-          setAmorce(true);
-        }}
-      />
-    );
-  }
+  if (!amorce) return <Amorcage onFini={() => { localStorage.setItem(SEEDING_KEY, '1'); setAmorce(true); }} />;
 
   const fiche = route.match(/^\/titre\/(tv|movie)\/(\d+)$/);
 
   return (
     <div className="app">
-      <Entete utilisateur={utilisateur} />
-      <Toast />
-
+      <Header utilisateur={utilisateur} />
       <main>
-        {route === '/' && <ASuivre />}
+        {route === '/' && <WatchFlowHome />}
         {route === '/bibliotheque' && <Bibliotheque />}
         {route === '/calendrier' && <Calendrier />}
         {route === '/stats' && <Statistiques />}
         {route === '/recherche' && <Recherche onAjout={(t) => (location.hash = `/titre/${t.mediaType}/${t.tmdbId}`)} />}
         {route === '/decouvrir' && <Tri />}
-        {route === '/reglages' && <Reglages utilisateur={utilisateur} />}
+        {route === '/reglages' && <Settings utilisateur={utilisateur} />}
         {fiche && <Fiche mediaType={fiche[1]} tmdbId={Number(fiche[2])} />}
       </main>
-
-      {/* Navigation en bas : à portée du pouce, quatre sections, pas davantage.
-          Chercher et Découvrir vivent désormais dans l'en-tête et Ma bibliothèque. */}
-      <nav className="barre" aria-label="Navigation principale">
-        <Onglet href="#/" actif={route === '/'} libelle="Accueil" icone="🏠" />
-        <Onglet href="#/bibliotheque" actif={route === '/bibliotheque'} libelle="Bibliothèque" icone="📚" />
-        <Onglet href="#/calendrier" actif={route === '/calendrier'} libelle="Calendrier" icone="📅" />
-        <Onglet href="#/stats" actif={route === '/stats'} libelle="Statistiques" icone="📊" />
+      <nav className="bottom-nav" aria-label="Navigation principale">
+        <Tab href="#/" active={route === '/'} label="Accueil" icon="⌂" />
+        <Tab href="#/bibliotheque" active={route === '/bibliotheque'} label="Bibliothèque" icon="▦" />
+        <Tab href="#/calendrier" active={route === '/calendrier'} label="Calendrier" icon="◫" />
+        <Tab href="#/stats" active={route === '/stats'} label="Statistiques" icon="◔" />
       </nav>
     </div>
   );
 }
 
-// En-tête d'appli : le nom, et un menu de compte pour les actions rapides
-// (se déconnecter en particulier) sans avoir à passer par Réglages.
-function Entete({ utilisateur }) {
-  const [ouvert, setOuvert] = useState(false);
+function Header({ utilisateur }) {
+  const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
-
   useEffect(() => {
-    if (!ouvert) return;
-    const fermerSiExterieur = (e) => { if (!menuRef.current?.contains(e.target)) setOuvert(false); };
-    const fermerSurEchap = (e) => { if (e.key === 'Escape') setOuvert(false); };
-    document.addEventListener('pointerdown', fermerSiExterieur);
-    document.addEventListener('keydown', fermerSurEchap);
-    return () => {
-      document.removeEventListener('pointerdown', fermerSiExterieur);
-      document.removeEventListener('keydown', fermerSurEchap);
-    };
-  }, [ouvert]);
-
+    if (!open) return;
+    const close = (e) => { if (!menuRef.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
   return (
-    <header className="entete-app">
-      <span className="logo">Tracker</span>
-
-      <div className="entete-actions">
-        <a className="menu-bouton" href="#/recherche" aria-label="Chercher un titre">
-          <span aria-hidden="true">⌕</span>
-        </a>
-
-        <div className="menu-compte" ref={menuRef}>
-          <button
-            type="button"
-            className="menu-bouton"
-            aria-haspopup="menu"
-            aria-expanded={ouvert}
-            aria-label="Menu du compte"
-            onClick={() => setOuvert((o) => !o)}
-          >
-            <span aria-hidden="true">⋯</span>
-          </button>
-
-          {ouvert && (
-            <ul className="menu-liste" role="menu">
-              <li role="none">
-                <a role="menuitem" href="#/reglages" onClick={() => setOuvert(false)}>Réglages</a>
-              </li>
-              <li role="none">
-                {utilisateur ? (
-                  <button role="menuitem" type="button" onClick={() => { setOuvert(false); seDeconnecter(); }}>
-                    Se déconnecter
-                  </button>
-                ) : (
-                  <button role="menuitem" type="button" onClick={() => { setOuvert(false); connecterAvecGoogle(); }}>
-                    Se connecter
-                  </button>
-                )}
-              </li>
-            </ul>
-          )}
+    <header className="app-header">
+      <a className="app-logo" href="#/">WatchFlow</a>
+      <div className="header-actions">
+        <a className="header-icon" href="#/recherche" aria-label="Rechercher">⌕</a>
+        <div className="account-menu" ref={menuRef}>
+          <button className="header-icon" type="button" aria-expanded={open} aria-label="Menu du compte" onClick={() => setOpen((v) => !v)}>⋯</button>
+          {open && <div className="account-popover">
+            <a href="#/reglages" onClick={() => setOpen(false)}>Réglages</a>
+            {utilisateur ? <button type="button" onClick={() => { setOpen(false); seDeconnecter(); }}>Se déconnecter</button> : <button type="button" onClick={() => { setOpen(false); connecterAvecGoogle(); }}>Se connecter</button>}
+          </div>}
         </div>
       </div>
     </header>
   );
 }
 
-// Confirmation courte après un geste (ajout, export...), sans bloquer l'écran.
-// Un événement global plutôt qu'un contexte : rien à partager, juste un message.
-function Toast() {
-  const [message, setMessage] = useState(null);
-  const timerRef = useRef(null);
+const Tab = ({ href, active, label, icon }) => <a href={href} className="bottom-tab" aria-current={active ? 'page' : undefined}><span>{icon}</span><small>{label}</small></a>;
 
-  useEffect(() => {
-    const afficher = (e) => {
-      clearTimeout(timerRef.current);
-      setMessage(e.detail);
-      timerRef.current = setTimeout(() => setMessage(null), 2200);
-    };
-    window.addEventListener('tracker:toast', afficher);
-    return () => {
-      window.removeEventListener('tracker:toast', afficher);
-      clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  if (!message) return null;
-  return <div className="toast" role="status">{message}</div>;
-}
-
-const Onglet = ({ href, actif, libelle, icone }) => (
-  <a href={href} className="onglet" aria-current={actif ? 'page' : undefined}>
-    <span aria-hidden="true">{icone}</span>
-    <span className="libelle">{libelle}</span>
-  </a>
-);
-
-const Reglages = ({ utilisateur }) => (
-  <section className="ecran">
+const Settings = ({ utilisateur }) => (
+  <section className="page">
+    <p className="eyebrow">COMPTE</p>
     <h1>Réglages</h1>
-    <p className="secondaire">
-      Tes données t'appartiennent. L'export contient l'intégralité de ton historique,
-      dans un format lisible sans cette application.
-    </p>
-    <button
-      type="button"
-      className="action primaire"
-      onClick={async () => { await telechargerExport(); notifier('Export téléchargé'); }}
-    >
-      Exporter mes données
-    </button>
-
-    {supabase && (
-      <>
-        <h2>Compte</h2>
-        {utilisateur ? (
-          <>
-            <p className="secondaire">Connecté en tant que {utilisateur.email}.</p>
-            <button type="button" className="action" onClick={seDeconnecter}>
-              Se déconnecter
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="secondaire">
-              Pas de compte : ton suivi reste sur cet appareil uniquement.
-            </p>
-            <button type="button" className="action" onClick={connecterAvecGoogle}>
-              Continuer avec Google
-            </button>
-          </>
-        )}
-      </>
-    )}
+    <p className="subtitle">Tes données sont exportables à tout moment.</p>
+    <button type="button" className="primary-btn" onClick={async () => { await telechargerExport(); notifier('Export téléchargé'); }}>Exporter mes données</button>
+    {supabase && <div className="settings-account">
+      <p className="eyebrow">SYNCHRONISATION</p>
+      <p className="subtitle">{utilisateur ? `Connecté en tant que ${utilisateur.email}.` : "Pas de compte : suivi local uniquement."}</p>
+      {utilisateur ? <button type="button" className="secondary-btn" onClick={seDeconnecter}>Se déconnecter</button> : <button type="button" className="secondary-btn" onClick={connecterAvecGoogle}>Continuer avec Google</button>}
+    </div>}
   </section>
 );
