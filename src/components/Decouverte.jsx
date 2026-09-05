@@ -126,40 +126,79 @@ export function Amorcage({ onFini }) {
 
 export function Tri() {
   const [pile, setPile] = useState([]);
+  const [chargement, setChargement] = useState(true);
 
-  useEffect(() => { propositions().then(setPile); }, []);
+  useEffect(() => { propositions().then((p) => { setPile(p); setChargement(false); }); }, []);
 
-  const juger = async (t, verdict) => {
+  // "J'aime" ne suffit plus : on distingue une envie (à voir plus tard) d'un
+  // souvenir (déjà vu ailleurs), sinon la bibliothèque se remplit de titres
+  // dont le statut réel est faux dès l'ajout.
+  const juger = async (t, action) => {
     setPile((p) => p.filter((x) => x.tmdbId !== t.tmdbId));   // retrait optimiste
-    await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict });
-    if (verdict === 'like') await ajouterItem(t);
-    setPile((p) => (p.length <= 3 ? p : p));
+    if (action === 'dislike') {
+      await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict: 'dislike' });
+    } else {
+      await jugerTitre({ tmdbId: t.tmdbId, mediaType: t.mediaType, verdict: 'like' });
+      await ajouterItem(t, action); // 'watchlist' ou 'completed'
+    }
   };
 
-  if (!pile.length) return <p className="ecran secondaire">Plus rien à trier pour le moment.</p>;
+  if (chargement) return <div className="ecran tri" aria-busy="true" />;
+  if (!pile.length) return (
+    <section className="ecran tri">
+      <div className="tri-vide">
+        <span aria-hidden="true">✦</span>
+        <strong>Plus rien à trier pour le moment.</strong>
+        <p className="secondaire">Reviens plus tard, de nouvelles suggestions arriveront.</p>
+      </div>
+    </section>
+  );
 
-  const [haut, ...reste] = pile;
+  const [haut, second, ...reste] = pile;
 
   return (
     <section className="ecran tri">
-      <Carte titre={haut} onJuger={juger} key={haut.tmdbId} />
-
-      {/* Alternative non gestuelle au balayage, et chemin le plus fiable à une main. */}
-      <div className="pied fixe">
-        <button type="button" className="action" onClick={() => juger(haut, 'dislike')}>Pas pour moi</button>
-        <button type="button" className="action" onClick={() => juger(haut, 'unseen')}>Jamais vu</button>
-        <button type="button" className="action primaire" onClick={() => juger(haut, 'like')}>J'aime</button>
+      <div className="tri-head">
+        <p className="eyebrow">POUR TOI</p>
+        <h1>Découvrir</h1>
+        <p className="subtitle">Balaye ou choisis une réponse : chaque avis affine tes prochaines suggestions.</p>
       </div>
 
-      <p className="secondaire compte">{reste.length} propositions en attente</p>
+      <div className="tri-pile">
+        {second && <Carte titre={second} pile aria-hidden="true" />}
+        <Carte titre={haut} onJuger={juger} key={haut.tmdbId} />
+      </div>
+
+      {/* Alternative non gestuelle au balayage, et chemin le plus fiable à une main. */}
+      <div className="tri-actions">
+        <button type="button" className="tri-btn tri-btn-non" onClick={() => juger(haut, 'dislike')} aria-label="Pas pour moi">
+          <span aria-hidden="true">✕</span><small>Pas pour moi</small>
+        </button>
+        <button type="button" className="tri-btn tri-btn-liste" onClick={() => juger(haut, 'watchlist')} aria-label="Ajouter à ma liste">
+          <span aria-hidden="true">＋</span><small>Ma liste</small>
+        </button>
+        <button type="button" className="tri-btn tri-btn-vu" onClick={() => juger(haut, 'completed')} aria-label="Déjà vu">
+          <span aria-hidden="true">✓</span><small>Déjà vu</small>
+        </button>
+      </div>
+
+      <p className="secondaire compte">{reste.length + 1} proposition{reste.length ? 's' : ''} en attente</p>
     </section>
   );
 }
 
-function Carte({ titre, onJuger }) {
+function Carte({ titre, onJuger, pile }) {
   const x = useMotionValue(0);
   const rotation = useTransform(x, [-200, 200], [-8, 8]);
   const opacite = useTransform(x, [-200, 0, 200], [0.3, 1, 0.3]);
+
+  if (pile) {
+    return (
+      <article className="carte-tri carte-tri-fond" aria-hidden="true">
+        <img src={poster(titre.posterPath, 'w342')} alt="" />
+      </article>
+    );
+  }
 
   return (
     <motion.article
@@ -169,11 +208,12 @@ function Carte({ titre, onJuger }) {
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.3}
       onDragEnd={(_, info) => {
-        if (info.offset.x > 120) onJuger(titre, 'like');
+        if (info.offset.x > 120) onJuger(titre, 'watchlist');
         else if (info.offset.x < -120) onJuger(titre, 'dislike');
       }}
     >
       <img src={poster(titre.posterPath, 'w342')} alt="" />
+      <div className="carte-overlay" aria-hidden="true" />
       <div className="legende">
         <h2>{titre.title}</h2>
         <p className="secondaire">{titre.year} · {titre.raison}</p>

@@ -45,15 +45,26 @@ export default function Recherche({ onAjout }) {
                 </p>
               </div>
             </a>
-            <button
-              type="button"
-              className="action"
-              onClick={async () => { await ajouterItem(t); notifier(`${t.title} ajouté à ta bibliothèque`); onAjout?.(t); }}
-              aria-label={`Suivre ${t.title}`}
-            >
-              <span aria-hidden="true">+</span>
-              <span className="libelle">Suivre</span>
-            </button>
+            <div className="ligne-actions">
+              <button
+                type="button"
+                className="action"
+                onClick={async () => { await ajouterItem(t, 'watchlist'); notifier(`${t.title} ajouté à ta liste`); onAjout?.(t); }}
+                aria-label={`Ajouter ${t.title} à ma liste`}
+              >
+                <span aria-hidden="true">＋</span>
+                <span className="libelle">Ma liste</span>
+              </button>
+              <button
+                type="button"
+                className="action discret"
+                onClick={async () => { await ajouterItem(t, 'completed'); notifier(`${t.title} marqué comme déjà vu`); onAjout?.(t); }}
+                aria-label={`Marquer ${t.title} comme déjà vu`}
+              >
+                <span aria-hidden="true">✓</span>
+                <span className="libelle">Déjà vu</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>

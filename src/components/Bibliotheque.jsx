@@ -64,8 +64,8 @@ export default function Bibliotheque() {
           <p className="subtitle">{items.length} œuvre{items.length > 1 ? 's' : ''} suivie{items.length > 1 ? 's' : ''}</p>
         </div>
         <div className="raccourcis">
-          <a className="action" href="#/recherche">⌕ Chercher</a>
-          <a className="action" href="#/decouvrir">✦ Découvrir</a>
+          <a className="action" href="#/recherche"><span aria-hidden="true">⌕</span> Chercher</a>
+          <a className="action" href="#/decouvrir"><span aria-hidden="true">✦</span> Découvrir</a>
         </div>
       </div>
 
@@ -120,7 +120,8 @@ export default function Bibliotheque() {
                       {i.mediaType === 'tv' ? 'Série' : 'Film'}
                       {i.watchedCount ? ` · ${i.watchedCount} vu${i.watchedCount > 1 ? 's' : ''}` : ''}
                     </span>
-                    {i.status === 'watching' && (
+                    {/* Un film est vu ou non : une barre de progression n'a de sens que pour une série. */}
+                    {i.status === 'watching' && i.mediaType === 'tv' && (
                       <div className="mini-progress">
                         <i style={{ width: `${Math.min(96, Math.max(8, i.watchedCount * 8))}%` }} />
                       </div>
