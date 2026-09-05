@@ -48,3 +48,12 @@ export async function seDeconnecter() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
+
+// Prénom d'affichage : le nom Google s'il existe, sinon la partie avant
+// l'arobase de l'email (seule info disponible pour un compte email/mot de passe).
+export function prenom(utilisateur) {
+  const nom = utilisateur?.user_metadata?.full_name || utilisateur?.user_metadata?.name || '';
+  if (nom.trim()) return nom.trim().split(/\s+/)[0];
+  if (utilisateur?.email) return utilisateur.email.split('@')[0];
+  return '';
+}

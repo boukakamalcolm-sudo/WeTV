@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import { aSuivre, cocher, items, entries, ajouterItem } from '../lib/store';
 import { poster, search } from '../lib/tmdb';
 import { notifier } from '../lib/toast';
+import { prenom } from '../lib/auth';
 import TitleModal, { useTitleModal } from './TitleModal';
 
-export default function WatchFlowHome() {
+export default function WatchFlowHome({ utilisateur }) {
   const [watching, setWatching] = useState([]);
   const [recent, setRecent] = useState([]);
   const [stats, setStats] = useState({ hours: 0, episodes: 0, movies: 0, favorite: '—' });
@@ -73,8 +74,10 @@ export default function WatchFlowHome() {
     window.dispatchEvent(new CustomEvent('tracker:updated'));
   }
 
+  const nom = prenom(utilisateur);
+
   return <div className="watchflow-home">
-    <section className="watchflow-head"><div><p className="eyebrow">TON SUIVI</p><h1>Bonsoir Malcolm <span aria-hidden="true">👋</span></h1><p className="subtitle">Reprends exactement là où tu t'es arrêté.</p></div><button className="watchflow-add" type="button" onClick={()=>setAdding(v=>!v)}>{adding?'× Fermer':'＋ Ajouter'}</button></section>
+    <section className="watchflow-head"><div><p className="eyebrow">TON SUIVI</p><h1>Bonsoir{nom ? ` ${nom}` : ''} <span aria-hidden="true">👋</span></h1><p className="subtitle">Reprends exactement là où tu t'es arrêté.</p></div><button className="watchflow-add" type="button" onClick={()=>setAdding(v=>!v)}>{adding?'× Fermer':'＋ Ajouter'}</button></section>
 
     {adding && <section className="quick-add"><label htmlFor="quick-add-input">Ajouter une série ou un film</label><div className="home-search"><span>⌕</span><input id="quick-add-input" autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Commence à taper un titre…" autoComplete="off" /></div>{searching&&<p className="subtitle">Recherche…</p>}{!searching&&results.length>0&&<div className="quick-add-results">{results.slice(0,6).map(t=><div className="quick-add-row" key={`${t.mediaType}-${t.tmdbId}`}><img src={poster(t.posterPath,'w185')} alt=""/><span><strong>{t.title}</strong><small>{t.mediaType==='tv'?'Série':'Film'}{t.year?` · ${t.year}`:''}</small></span><span className="quick-add-actions"><button type="button" className="action" onClick={()=>addTitle(t,'watchlist')} aria-label={`Ajouter ${t.title} à ma liste`}><span aria-hidden="true">＋</span><span className="libelle">Ma liste</span></button><button type="button" className="action discret" onClick={()=>addTitle(t,'completed')} aria-label={`Marquer ${t.title} comme déjà vu`}><span aria-hidden="true">✓</span><span className="libelle">Déjà vu</span></button></span></div>)}</div>}{!searching&&query.trim().length>=2&&!results.length&&<p className="subtitle">Aucun titre trouvé.</p>}</section>}
 
