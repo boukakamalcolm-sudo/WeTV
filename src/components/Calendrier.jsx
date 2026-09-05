@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { sortiesConnues } from '../lib/calendrier';
-import { entries as entriesStore, cocher, majStatut } from '../lib/store';
+import { entries as entriesStore, cocher, decocher, majStatut } from '../lib/store';
 import { verifierCompletionSerie } from '../lib/completion';
 import { grouperParDate } from '../lib/pagination';
 import TitleModal, { useTitleModal } from './TitleModal';
@@ -43,14 +43,14 @@ const cleEpisode = (s) => `${s.localId}-${s.saison ?? 'f'}-${s.episode ?? ''}`;
 
 export default function Calendrier() {
   const [sorties, setSorties] = useState(null);
-  const [vus, setVus] = useState(new Set());
+  const [vus, setVus] = useState(new Map());
   const [debutSemaine, setDebutSemaine] = useState(() => lundiDe(new Date()));
   const { selected, open, close } = useTitleModal();
 
   async function charger() {
     const [s, es] = await Promise.all([sortiesConnues(), entriesStore()]);
     setSorties(s);
-    setVus(new Set(es.map((e) => `${e.itemId}-${e.season ?? 'f'}-${e.episode ?? ''}`)));
+    setVus(new Map(es.map((e) => [`${e.itemId}-${e.season ?? 'f'}-${e.episode ?? ''}`, e.localId])));
   }
 
   useEffect(() => {
@@ -81,7 +81,14 @@ export default function Calendrier() {
   }
 
   async function marquerVu(s) {
-    if (s.saison != null) {
+    const entryId = vus.get(cleEpisode(s));
+    if (entryId != null) {
+      // Démarquer : symétrique de l'action de cocher, jusqu'ici impossible
+      // depuis le calendrier (le bouton restait désactivé une fois coché).
+      await decocher(entryId);
+      if (s.saison != null) await verifierCompletionSerie(s.localId);
+      else await majStatut(s.localId, 'watchlist');
+    } else if (s.saison != null) {
       await cocher({ itemId: s.localId, season: s.saison, episode: s.episode, airDate: s.date });
       await verifierCompletionSerie(s.localId); // "Terminé" seulement si toutes les saisons sont vues
     } else {
@@ -127,8 +134,8 @@ export default function Calendrier() {
                     type="button"
                     className={vu ? 'marquer-vu vu' : 'marquer-vu'}
                     onClick={() => marquerVu(s)}
-                    disabled={vu}
-                    aria-label={vu ? `${s.title} déjà marqué comme vu` : `Marquer ${s.title} comme vu`}
+                    aria-pressed={vu}
+                    aria-label={vu ? `Démarquer ${s.title} comme vu` : `Marquer ${s.title} comme vu`}
                   >
                     {vu ? '✓' : '＋'}
                   </button>

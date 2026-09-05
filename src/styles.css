@@ -113,6 +113,7 @@
 .season-tab{flex:none;min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.04);color:#c7cbd6;font-size:11px;font-weight:700;white-space:nowrap}
 .season-tab.active{background:linear-gradient(135deg,var(--accent),#6949ee);border-color:transparent;color:#fff}
 .season-mark-all{display:block;width:100%;min-height:44px;margin-bottom:10px;border:1px solid var(--border);border-radius:12px;background:rgba(84,214,155,.1);color:#8fe6bc;font-size:12px;font-weight:700}
+.season-unmark-all{background:rgba(255,182,72,.12);color:#ffcf8f}
 .episode-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .episode-row{display:flex;align-items:center;gap:12px;width:100%;min-height:var(--tap);padding:9px 12px;border:1px solid var(--border);border-radius:13px;background:rgba(255,255,255,.03);color:#fff;text-align:left}
 .episode-row.watched{background:rgba(84,214,155,.08);border-color:rgba(84,214,155,.25)}

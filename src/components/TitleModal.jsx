@@ -137,6 +137,7 @@ function EpisodesPanel({ item, data }) {
   const [saison, setSaison] = useState(null);
   const [episodes, setEpisodes] = useState(null);
   const [chargeSaison, setChargeSaison] = useState(false);
+  const [statut, setStatut] = useState(item.status);
 
   const saisons = useMemo(() => (data?.seasons || []).filter((s) => s.season_number > 0), [data]);
 
@@ -177,7 +178,7 @@ function EpisodesPanel({ item, data }) {
     if (entryId) await decocher(entryId);
     else await cocher({ itemId: item.localId, season: saison, episode: ep.episode_number, runtimeMin: ep.runtime || data?.episode_run_time?.[0] || null, airDate: ep.air_date || null });
     setEntries(await entriesDe(item.localId));
-    await verifierCompletionSerie(item.localId);
+    setStatut(await verifierCompletionSerie(item.localId));
     dispatchEvent(new CustomEvent('tracker:updated'));
   }
 
@@ -189,7 +190,15 @@ function EpisodesPanel({ item, data }) {
       episodes: episodes.map((e) => ({ numero: e.episode_number, duree: e.runtime || data?.episode_run_time?.[0] || null, diffusion: e.air_date })),
     });
     setEntries(await entriesDe(item.localId));
-    await verifierCompletionSerie(item.localId);
+    setStatut(await verifierCompletionSerie(item.localId));
+    dispatchEvent(new CustomEvent('tracker:updated'));
+  }
+
+  // Alternative rapide au décochage épisode par épisode : remettre "en cours"
+  // une série marquée terminée, sans avoir à décocher chaque saison.
+  async function remettreEnCours() {
+    await majStatut(item.localId, 'watching');
+    setStatut('watching');
     dispatchEvent(new CustomEvent('tracker:updated'));
   }
 
@@ -211,6 +220,12 @@ function EpisodesPanel({ item, data }) {
           </button>
         ))}
       </div>
+
+      {statut === 'completed' && (
+        <button type="button" className="season-mark-all season-unmark-all" onClick={remettreEnCours}>
+          ↺ Remettre "en cours"
+        </button>
+      )}
 
       {chargeSaison || episodes === null ? (
         <p className="subtitle">Chargement des épisodes…</p>
