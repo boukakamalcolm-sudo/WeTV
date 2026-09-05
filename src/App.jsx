@@ -57,7 +57,7 @@ export default function App() {
     <div className="app">
       <Header utilisateur={utilisateur} />
       <main>
-        {route === '/' && <WatchFlowHome />}
+        {route === '/' && <WatchFlowHome utilisateur={utilisateur} />}
         {route === '/bibliotheque' && <Bibliotheque />}
         {route === '/calendrier' && <Calendrier />}
         {route === '/stats' && <Statistiques />}
