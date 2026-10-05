@@ -40,13 +40,13 @@ export default function AuthLanding() {
         <div className="auth-glow glow-a" /><div className="auth-glow glow-b" />
         <div className="auth-film auth-film-a" /><div className="auth-film auth-film-b" /><div className="auth-film auth-film-c" />
       </div>
-      <header className="auth-brand">WatchFlow<span>●</span></header>
+      <header className="auth-brand">WeTV<span>●</span></header>
 
       {mode === 'landing' ? (
         <div className="auth-content">
-          <div className="auth-kicker">TON UNIVERS DE WATCHING</div>
-          <h1>Ne te demande plus où tu t’es arrêté.</h1>
-          <p>WatchFlow garde en mémoire chaque épisode, chaque film et chaque minute regardée — pour que tu puisses reprendre exactement là où tu en étais.</p>
+          <div className="auth-kicker">CALENDRIER DES SORTIES</div>
+          <h1>Ne rate plus aucune sortie.</h1>
+          <p>Choisis tes séries et tes films, WeTV les met dans ton agenda : chaque nouvel épisode, chaque sortie au cinéma ou en streaming, toujours à jour.</p>
           <div className="auth-actions">
             <button className="auth-primary google" type="button" onClick={connecterAvecGoogle}>
               <span className="google-mark" aria-hidden="true">G</span><span>Continuer avec Google</span>
@@ -58,9 +58,9 @@ export default function AuthLanding() {
       ) : (
         <div className="auth-form-shell">
           <button className="auth-back" type="button" onClick={() => go('landing')}>← Retour</button>
-          <div className="auth-kicker">WATCHFLOW</div>
+          <div className="auth-kicker">WETV</div>
           <h1>{mode === 'signup' ? 'Créer ton compte' : mode === 'reset' ? 'Réinitialiser ton mot de passe' : 'Bon retour'}</h1>
-          <p>{mode === 'signup' ? 'Retrouve ton historique sur tous tes appareils.' : mode === 'reset' ? 'Entre ton adresse e-mail pour recevoir un lien.' : 'Connecte-toi pour retrouver ton univers de séries et de films.'}</p>
+          <p>{mode === 'signup' ? 'Un compte pour gérer tes favoris et ton calendrier.' : mode === 'reset' ? 'Entre ton adresse e-mail pour recevoir un lien.' : 'Connecte-toi pour gérer tes favoris.'}</p>
 
           <form onSubmit={submit} className="auth-form">
             <label htmlFor="auth-email">Adresse e-mail</label>

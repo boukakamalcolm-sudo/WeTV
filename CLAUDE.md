@@ -1,42 +1,48 @@
-# Tracker de séries et films personnel
+# WeTV — calendrier des sorties
 
-Application perso, mono-utilisateur. Lire `note-de-cadrage-tracker-series.md`
-pour le périmètre et le backlog, `schema.sql` pour le modèle de données.
+Outil perso, mono-utilisateur. Un flux iCal vivant annonce les sorties des
+séries et films favoris ; l'app web n'est plus qu'une console d'administration
+de ces favoris. Lire `note-de-cadrage-tracker-series.md` pour le périmètre,
+`schema.sql` pour le modèle de données.
 
 ## Quatre principes, non négociables
 
-**1. Les données appartiennent à l'utilisateur.** Export JSON complet disponible
-en permanence. Aucun format propriétaire. L'identifiant TMDB sert de clé de
-référence universelle.
+**1. Un flux, pas des exports.** Le calendrier est une URL d'abonnement unique
+(`/calendrier.ics?cle=…`), recalculée à chaque lecture. Jamais de fichier .ics
+figé à réimporter. Les UID des événements sont stables (`tv-<id>-s<S>e<E>@wetv`,
+`movie-<id>-<cinema|numerique|sortie>@wetv`) : les changer crée des doublons
+chez tous les abonnés.
 
-**2. Aucun geste n'attend le réseau.** Toute écriture va d'abord dans IndexedDB
-et repart plus tard via l'outbox. Si un `await` réseau apparaît entre un clic et
-un rendu, c'est une régression. Le cochage d'un épisode est le geste central.
+**2. TMDB est la seule source des dates.** On ne stocke aucune date de sortie
+en base : seulement les favoris (identifiant TMDB comme clé universelle). Une
+date corrigée sur TMDB doit arriver d'elle-même dans l'agenda.
 
-**3. Ce qui n'est pas mesuré au moment du visionnage est perdu.** Chaque entrée
-enregistre horodatage, durée, plateforme. Même sans écran de statistiques.
+**3. La clé du flux est un secret.** Elle ouvre les favoris sans connexion ;
+elle reste longue, régénérable, et ne passe que par les fonctions SQL
+`security definer` prévues. Aucune lecture directe de `calendriers`.
 
-**4. Le châssis est neutre, la couleur vient des affiches.** Pas de palette
-décorative. La teinte dominante de l'affiche habille la fiche, le texte bascule
-selon la luminosité pour tenir 4,5:1.
+**4. Le flux ne tombe pas pour un titre.** Un favori introuvable sur TMDB est
+signalé dans la console, jamais une erreur qui vide tout le calendrier.
 
-## Contraintes de conception
+## Contraintes de conception (console)
 
-- Tout geste a une alternative au simple appui (balayage doublé d'un bouton).
 - Zones tactiles à 44 points minimum.
-- Commandes principales en bas, à portée du pouce. Quatre onglets, pas plus.
+- Commandes principales en bas, à portée du pouce. Trois onglets : Sorties,
+  Favoris, Abonnement.
 - Aucune information portée par la seule couleur : coche et libellé systématiques.
-- Tailles de texte relatives, pour suivre le réglage système. Jamais de mise en
-  page figée sur une seule taille d'écran.
+- Tailles de texte relatives (rem), jamais de mise en page figée sur une taille d'écran.
 - Étiquettes de champ visibles pendant la saisie, pas de placeholder seul.
 - Champs de saisie à 16px minimum, sinon iOS zoome.
 
 ## Ce qui est hors périmètre
 
-Le social sous toutes ses formes. Le natif et l'App Store. Tout moteur 3D
-embarqué. Les notifications push, reportées après la mise en service.
+Le suivi de visionnage (épisodes vus, statistiques, recommandations) : c'était
+l'ancien tracker, retiré. Le social sous toutes ses formes. Le natif et l'App
+Store. Les notifications push : l'agenda s'en charge.
 
 ## Dépendances
 
-React, Vite, Framer Motion. Rien d'autre côté interface. Supabase pour la
-synchro, TMDB pour les métadonnées. Toute nouvelle dépendance doit être justifiée.
+React et Vite côté console, Supabase pour les comptes et les favoris, TMDB pour
+les métadonnées. Le flux (`api/`) n'a aucune dépendance : fonctions Vercel en
+Node avec `fetch`, iCalendar écrit à la main. Toute nouvelle dépendance doit
+être justifiée.

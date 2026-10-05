@@ -1,4 +1,5 @@
-// Client TMDB. Les métadonnées sont mises en cache, jamais considérées comme des données propres.
+// Client TMDB côté console : recherche uniquement. Les dates de sortie sont
+// calculées côté serveur, dans le flux (api/_sorties.js).
 // Clé gratuite pour un usage non commercial : themoviedb.org, Paramètres > API.
 
 const BASE = 'https://api.themoviedb.org/3';
@@ -35,27 +36,6 @@ export async function search(query) {
     .filter((r) => r.media_type === 'tv' || r.media_type === 'movie')
     .map(normalise);
 }
-
-export const details = (type, id) =>
-  get(`/${type}/${id}`, { append_to_response: 'credits,watch/providers' });
-
-export const season = (id, n) => get(`/tv/${id}/season/${n}`);
-
-// Titres proches. Suffit largement pour recommander tant qu'on a peu de données.
-export const similar = (type, id) =>
-  get(`/${type}/${id}/similar`).then((d) => d.results.map(normalise));
-
-// Exploration : un genre ou une décennie que je n'ai jamais touchés.
-export const decouvrir = (type, { genre, avant, apres, page = 1 }) =>
-  get(`/discover/${type}`, {
-    page,
-    with_genres: genre ?? '',
-    'vote_count.gte': 200,
-    sort_by: 'popularity.desc',
-    ...(type === 'tv'
-      ? { 'first_air_date.gte': apres ?? '', 'first_air_date.lte': avant ?? '' }
-      : { 'primary_release_date.gte': apres ?? '', 'primary_release_date.lte': avant ?? '' }),
-  }).then((d) => d.results.map(normalise));
 
 // Une seule forme d'objet dans toute l'app, quelle que soit la route TMDB.
 function normalise(r) {

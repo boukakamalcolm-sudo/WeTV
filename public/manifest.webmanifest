@@ -1,7 +1,7 @@
 {
-  "name": "WatchFlow",
-  "short_name": "WatchFlow",
-  "description": "Ton suivi de séries et de films, à ton rythme.",
+  "name": "WeTV",
+  "short_name": "WeTV",
+  "description": "Le calendrier des sorties de tes séries et films favoris.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
